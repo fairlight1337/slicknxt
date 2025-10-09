@@ -10,6 +10,9 @@ import uvicorn
 from pathlib import Path
 from datetime import datetime
 import os
+import asyncio
+
+from execution_engine import FlowExecutor
 
 app = FastAPI(title="SlickNXT - Node-RED Interface for NXT")
 
@@ -17,8 +20,12 @@ app = FastAPI(title="SlickNXT - Node-RED Interface for NXT")
 FLOWS_DIR = Path("flows")
 FLOWS_DIR.mkdir(exist_ok=True)
 
-# Store active node states
-node_states: Dict[str, Dict] = {}
+# Global flow executor
+executor = FlowExecutor()
+executor_task: Optional[asyncio.Task] = None
+
+# WebSocket connections for state updates
+active_connections: List[WebSocket] = []
 
 class NodeData(BaseModel):
     id: str
@@ -130,71 +137,121 @@ async def delete_flow(filename: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting flow: {str(e)}")
 
-@app.post("/api/nodes/execute")
-async def execute_node(node_id: str, inputs: Dict[str, Any]):
-    """Execute a node with given inputs"""
-    # This will simulate motor node execution
-    # In real implementation, this would interface with nxt-python
+@app.post("/api/flow/start")
+async def start_flow_execution():
+    """Start executing the current flow"""
+    global executor_task
     
-    if node_id not in node_states:
-        node_states[node_id] = {}
+    if executor_task and not executor_task.done():
+        return {"status": "already_running", "message": "Flow is already executing"}
     
-    # Simulate motor node execution
-    outputs = {
-        "actual_on_off": inputs.get("on_off", False),
-        "actual_speed": inputs.get("speed", 0),
-        "actual_forward": inputs.get("forward", True)
-    }
+    # Register state update callback (only if not already registered)
+    if broadcast_state_update not in executor.state_callbacks:
+        executor.add_state_callback(broadcast_state_update)
     
-    node_states[node_id] = {
-        "inputs": inputs,
-        "outputs": outputs
-    }
-    
-    return {
-        "status": "success",
-        "node_id": node_id,
-        "outputs": outputs
-    }
+    # Start execution in background
+    try:
+        executor_task = asyncio.create_task(executor.run())
+        return {"status": "started", "message": "Flow execution started"}
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to start: {str(e)}"}
 
-@app.get("/api/nodes/{node_id}/state")
-async def get_node_state(node_id: str):
-    """Get the current state of a node"""
-    return node_states.get(node_id, {})
+
+@app.post("/api/flow/stop")
+async def stop_flow_execution():
+    """Stop executing the current flow"""
+    global executor_task
+    
+    if not executor_task or executor_task.done():
+        return {"status": "not_running", "message": "Flow is not executing"}
+    
+    executor.stop()
+    await executor_task
+    executor_task = None
+    
+    return {"status": "stopped", "message": "Flow execution stopped"}
+
+
+@app.post("/api/flow/load")
+async def load_and_start_flow(flow: Flow):
+    """Load a flow into the executor"""
+    global executor_task
+    
+    # Stop existing execution
+    if executor_task and not executor_task.done():
+        executor.stop()
+        await executor_task
+        executor_task = None
+    
+    # Load the flow
+    executor.load_flow(flow.dict())
+    
+    # Broadcast initial state for all nodes
+    for node_id, node in executor.nodes.items():
+        await broadcast_state_update(node_id, node.get_state())
+    
+    return {"status": "loaded", "message": f"Flow loaded with {len(flow.nodes)} nodes"}
+
+
+@app.post("/api/node/input")
+async def handle_user_input(request: Dict[str, Any]):
+    """Handle user input from UI"""
+    node_id = request.get("nodeId")
+    control = request.get("control")
+    value = request.get("value")
+    
+    if not all([node_id, control is not None, value is not None]):
+        raise HTTPException(status_code=400, detail="Missing required fields")
+    
+    await executor.handle_user_input(node_id, control, value)
+    
+    return {"status": "success"}
+
+
+async def broadcast_state_update(node_id: str, state: Dict[str, Any]):
+    """Broadcast state update to all connected WebSocket clients"""
+    message = json.dumps({
+        "type": "node_state",
+        "nodeId": node_id,
+        "state": state
+    })
+    
+    # Remove disconnected clients
+    disconnected = []
+    for connection in active_connections:
+        try:
+            await connection.send_text(message)
+        except:
+            disconnected.append(connection)
+    
+    for conn in disconnected:
+        active_connections.remove(conn)
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time node state updates"""
+    """WebSocket endpoint for real-time state updates"""
     await websocket.accept()
+    active_connections.append(websocket)
+    
     try:
+        # Keep connection alive and listen for client messages
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
             
-            if message["type"] == "execute_node":
-                node_id = message["node_id"]
-                inputs = message["inputs"]
-                
-                # Execute node and get outputs
-                outputs = {
-                    "actual_on_off": inputs.get("on_off", False),
-                    "actual_speed": inputs.get("speed", 0),
-                    "actual_forward": inputs.get("forward", True)
-                }
-                
-                node_states[node_id] = {
-                    "inputs": inputs,
-                    "outputs": outputs
-                }
-                
-                # Send back the results
-                await websocket.send_text(json.dumps({
-                    "type": "node_state_update",
-                    "node_id": node_id,
-                    "outputs": outputs
-                }))
+            # Handle different message types from client
+            if message.get("type") == "user_input":
+                await executor.handle_user_input(
+                    message["nodeId"],
+                    message["control"],
+                    message["value"]
+                )
+            elif message.get("type") == "ping":
+                await websocket.send_text(json.dumps({"type": "pong"}))
                 
     except WebSocketDisconnect:
+        active_connections.remove(websocket)
         print("Client disconnected")
 
 # Mount static files directory

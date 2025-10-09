@@ -675,44 +675,34 @@
 
         // Motor Node Component
         function MotorNode({ data, id }) {
-            const [onOff, setOnOff] = useState(false);
-            const [forward, setForward] = useState(true);
-            const [speed, setSpeed] = useState(50);
-            const onUpdateRef = useRef(null);
-
-            // Keep onUpdate ref current
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
+            // Get values from server state
+            const onOff = data.serverState?.outputs?.onOff ?? false;
+            const forward = data.serverState?.outputs?.forward ?? true;
+            const speed = data.serverState?.outputs?.speed ?? 50;
 
             // Check if handles are connected from data
             const isOnOffConnected = data.connectedInputs?.includes('in-on-off') || false;
             const isForwardConnected = data.connectedInputs?.includes('in-forward') || false;
             const isSpeedConnected = data.connectedInputs?.includes('in-speed') || false;
 
-            // Use data from connected inputs if available
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.onOff !== undefined) setOnOff(data.inputs.onOff);
-                    if (data.inputs.forward !== undefined) setForward(data.inputs.forward);
-                    if (data.inputs.speed !== undefined) {
-                        // Clamp speed to 0-100 range
-                        const clampedSpeed = Math.max(0, Math.min(100, data.inputs.speed));
-                        setSpeed(clampedSpeed);
-                    }
+            // User input handlers
+            const handleOnOffChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'onOff', e.target.checked);
                 }
-            }, [data.inputs]);
+            };
 
-            // Update outputs whenever state changes
-            useEffect(() => {
-                if (onUpdateRef.current) {
-                    onUpdateRef.current(id, {
-                        onOff: onOff,
-                        speed: speed,
-                        forward: forward
-                    });
+            const handleForwardChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'forward', e.target.checked);
                 }
-            }, [onOff, speed, forward, id]);
+            };
+
+            const handleSpeedChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'speed', parseInt(e.target.value));
+                }
+            };
 
             return (
                 <div>
@@ -759,7 +749,7 @@
                                 <input 
                                     type="checkbox" 
                                     checked={onOff} 
-                                    onChange={(e) => setOnOff(e.target.checked)}
+                                    onChange={handleOnOffChange}
                                     disabled={isOnOffConnected}
                                 />
                                 {' '}On/Off
@@ -771,7 +761,7 @@
                                 <input 
                                     type="checkbox" 
                                     checked={forward} 
-                                    onChange={(e) => setForward(e.target.checked)}
+                                    onChange={handleForwardChange}
                                     disabled={isForwardConnected}
                                 />
                                 {' '}Forward
@@ -785,7 +775,7 @@
                                 min="0" 
                                 max="100" 
                                 value={speed}
-                                onChange={(e) => setSpeed(parseInt(e.target.value))}
+                                onChange={handleSpeedChange}
                                 className="control-input"
                                 disabled={isSpeedConnected}
                             />
@@ -842,20 +832,17 @@
             );
         }
 
-        // Dial/Slider Node
+        // Dial/Slider Node (Server-side execution)
         function DialNode({ data, id }) {
-            const [value, setValue] = useState(50);
-            const onUpdateRef = useRef(null);
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            useEffect(() => {
-                if (onUpdateRef.current) {
-                    onUpdateRef.current(id, { value: value });
+            // Get value from server state or default
+            const value = data.serverState?.outputs?.value ?? 50;
+            
+            // Send user input to server
+            const handleChange = (newValue) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'value', newValue);
                 }
-            }, [value, id]);
+            };
 
             return (
                 <div>
@@ -869,7 +856,7 @@
                                 min="0" 
                                 max="100" 
                                 value={value}
-                                onChange={(e) => setValue(parseInt(e.target.value))}
+                                onChange={(e) => handleChange(parseInt(e.target.value))}
                                 className="control-input"
                             />
                         </div>
@@ -890,20 +877,16 @@
             );
         }
 
-        // Switch Node
+        // Switch Node (Server-side execution)
         function SwitchNode({ data, id }) {
-            const [value, setValue] = useState(false);
-            const onUpdateRef = useRef(null);
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            useEffect(() => {
-                if (onUpdateRef.current) {
-                    onUpdateRef.current(id, { value: value });
+            // Get value from server state or default
+            const value = data.serverState?.outputs?.value ?? false;
+            
+            const handleToggle = () => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'value', !value);
                 }
-            }, [value, id]);
+            };
 
             return (
                 <div>
@@ -911,7 +894,7 @@
                     
                     <div className="node-controls">
                         <button 
-                            onClick={() => setValue(!value)}
+                            onClick={handleToggle}
                             style={{ 
                                 width: '100%',
                                 padding: '10px',
@@ -944,15 +927,10 @@
             );
         }
 
-        // Number Display Node
+        // Number Display Node (Server-side execution)
         function NumberDisplayNode({ data, id }) {
-            const [value, setValue] = useState(0);
-
-            useEffect(() => {
-                if (data.inputs && data.inputs.value !== undefined) {
-                    setValue(data.inputs.value);
-                }
-            }, [data.inputs]);
+            // Get value from server inputs or default
+            const value = data.serverState?.inputs?.value ?? 0;
 
             return (
                 <div>
@@ -974,15 +952,10 @@
             );
         }
 
-        // Boolean Display Node
+        // Boolean Display Node (Server-side execution)
         function BoolDisplayNode({ data, id }) {
-            const [value, setValue] = useState(false);
-
-            useEffect(() => {
-                if (data.inputs && data.inputs.value !== undefined) {
-                    setValue(data.inputs.value);
-                }
-            }, [data.inputs]);
+            // Get value from server inputs or default
+            const value = data.serverState?.inputs?.value ?? false;
 
             return (
                 <div>
@@ -1009,29 +982,10 @@
 
         // AND Logic Gate Node
         function AndNode({ data, id }) {
-            const [inputA, setInputA] = useState(false);
-            const [inputB, setInputB] = useState(false);
-            const [output, setOutput] = useState(false);
-            const onUpdateRef = useRef(null);
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.a !== undefined) setInputA(data.inputs.a);
-                    if (data.inputs.b !== undefined) setInputB(data.inputs.b);
-                }
-            }, [data.inputs]);
-
-            useEffect(() => {
-                const result = inputA && inputB;
-                setOutput(result);
-                if (onUpdateRef.current) {
-                    onUpdateRef.current(id, { output: result });
-                }
-            }, [inputA, inputB, id]);
+            // Get values from server state
+            const inputA = data.serverState?.inputs?.a ?? false;
+            const inputB = data.serverState?.inputs?.b ?? false;
+            const output = data.serverState?.outputs?.output ?? false;
 
             return (
                 <div>
@@ -1061,29 +1015,10 @@
 
         // OR Logic Gate Node
         function OrNode({ data, id }) {
-            const [inputA, setInputA] = useState(false);
-            const [inputB, setInputB] = useState(false);
-            const [output, setOutput] = useState(false);
-            const onUpdateRef = useRef(null);
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.a !== undefined) setInputA(data.inputs.a);
-                    if (data.inputs.b !== undefined) setInputB(data.inputs.b);
-                }
-            }, [data.inputs]);
-
-            useEffect(() => {
-                const result = inputA || inputB;
-                setOutput(result);
-                if (onUpdateRef.current) {
-                    onUpdateRef.current(id, { output: result });
-                }
-            }, [inputA, inputB, id]);
+            // Get values from server state
+            const inputA = data.serverState?.inputs?.a ?? false;
+            const inputB = data.serverState?.inputs?.b ?? false;
+            const output = data.serverState?.outputs?.output ?? false;
 
             return (
                 <div>
@@ -1113,29 +1048,10 @@
 
         // XOR Logic Gate Node
         function XorNode({ data, id }) {
-            const [inputA, setInputA] = useState(false);
-            const [inputB, setInputB] = useState(false);
-            const [output, setOutput] = useState(false);
-            const onUpdateRef = useRef(null);
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.a !== undefined) setInputA(data.inputs.a);
-                    if (data.inputs.b !== undefined) setInputB(data.inputs.b);
-                }
-            }, [data.inputs]);
-
-            useEffect(() => {
-                const result = inputA !== inputB;
-                setOutput(result);
-                if (onUpdateRef.current) {
-                    onUpdateRef.current(id, { output: result });
-                }
-            }, [inputA, inputB, id]);
+            // Get values from server state
+            const inputA = data.serverState?.inputs?.a ?? false;
+            const inputB = data.serverState?.inputs?.b ?? false;
+            const output = data.serverState?.outputs?.output ?? false;
 
             return (
                 <div>
@@ -1165,27 +1081,9 @@
 
         // NOT Logic Gate Node
         function NotNode({ data, id }) {
-            const [input, setInput] = useState(false);
-            const [output, setOutput] = useState(true);
-            const onUpdateRef = useRef(null);
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            useEffect(() => {
-                if (data.inputs && data.inputs.input !== undefined) {
-                    setInput(data.inputs.input);
-                }
-            }, [data.inputs]);
-
-            useEffect(() => {
-                const result = !input;
-                setOutput(result);
-                if (onUpdateRef.current) {
-                    onUpdateRef.current(id, { output: result });
-                }
-            }, [input, id]);
+            // Get values from server state
+            const input = data.serverState?.inputs?.input ?? false;
+            const output = data.serverState?.outputs?.output ?? true;
 
             return (
                 <div>
@@ -1210,92 +1108,39 @@
 
         // Pulse Timer Node
         function PulseTimerNode({ data, id }) {
-            const [onDuration, setOnDuration] = useState(2);
-            const [offDuration, setOffDuration] = useState(2);
-            const [output, setOutput] = useState(false);
-            const [isRunning, setIsRunning] = useState(false);
-            const [enable, setEnable] = useState(false);
-            const onUpdateRef = useRef(null);
-            const timerRef = useRef(null);
-            const intervalRef = useRef(null);
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            // Handle input overrides
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.onDuration !== undefined) setOnDuration(data.inputs.onDuration);
-                    if (data.inputs.offDuration !== undefined) setOffDuration(data.inputs.offDuration);
-                    if (data.inputs.enable !== undefined) setEnable(data.inputs.enable);
-                }
-            }, [data.inputs]);
-
-            useEffect(() => {
-                if (onUpdateRef.current) {
-                    onUpdateRef.current(id, { output: output });
-                }
-            }, [output, id]);
-
-            const runPulseSequence = useCallback(() => {
-                setOutput(true);
-                
-                // Stay on for onDuration
-                timerRef.current = setTimeout(() => {
-                    setOutput(false);
-                    
-                    // Stay off for offDuration and loop
-                    timerRef.current = setTimeout(() => {
-                        runPulseSequence(); // Loop continuously
-                    }, offDuration * 1000);
-                }, onDuration * 1000);
-            }, [onDuration, offDuration]);
-
-            const startTimer = useCallback(() => {
-                setIsRunning(true);
-            }, []);
-
-            const stopTimer = useCallback(() => {
-                if (timerRef.current) {
-                    clearTimeout(timerRef.current);
-                    timerRef.current = null;
-                }
-                setIsRunning(false);
-                setOutput(false);
-            }, []);
-
-            // Handle running state and start/stop sequence
-            useEffect(() => {
-                if (isRunning) {
-                    runPulseSequence();
-                } else {
-                    if (timerRef.current) {
-                        clearTimeout(timerRef.current);
-                        timerRef.current = null;
-                    }
-                    setOutput(false); // Reset to OFF when stopped
-                }
-                
-                return () => {
-                    if (timerRef.current) {
-                        clearTimeout(timerRef.current);
-                    }
-                };
-            }, [isRunning, runPulseSequence]);
-
-            // Handle enable/disable from input
-            useEffect(() => {
-                if (enable) {
-                    startTimer();
-                } else {
-                    stopTimer();
-                }
-            }, [enable, startTimer, stopTimer]);
+            // Get values from server state  
+            const onDuration = data.serverState?.inputs?.onDuration ?? 2;
+            const offDuration = data.serverState?.inputs?.offDuration ?? 2;
+            const enable = data.serverState?.inputs?.enable ?? false;
+            const output = data.serverState?.outputs?.output ?? false;
 
             const onDurationDisabled = data.connectedInputs?.includes('in-on-duration');
             const offDurationDisabled = data.connectedInputs?.includes('in-off-duration');
             const enableDisabled = data.connectedInputs?.includes('in-enable');
+
+            const handleOnDurationChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'onDuration', parseFloat(e.target.value));
+                }
+            };
+
+            const handleOffDurationChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'offDuration', parseFloat(e.target.value));
+                }
+            };
+
+            const handleStartClick = () => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'enabled', true);
+                }
+            };
+
+            const handleStopClick = () => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'enabled', false);
+                }
+            };
 
             return (
                 <div>
@@ -1321,7 +1166,7 @@
                             max="10"
                             step="0.5"
                             value={onDuration}
-                            onChange={(e) => setOnDuration(parseFloat(e.target.value))}
+                            onChange={handleOnDurationChange}
                             disabled={onDurationDisabled}
                             style={{ width: '100%' }}
                         />
@@ -1334,7 +1179,7 @@
                             max="10"
                             step="0.5"
                             value={offDuration}
-                            onChange={(e) => setOffDuration(parseFloat(e.target.value))}
+                            onChange={handleOffDurationChange}
                             disabled={offDurationDisabled}
                             style={{ width: '100%' }}
                         />
@@ -1342,8 +1187,8 @@
 
                         <div style={{ marginTop: '10px', display: 'flex', gap: '5px' }}>
                             <button 
-                                onClick={startTimer} 
-                                disabled={isRunning || enableDisabled}
+                                onClick={handleStartClick} 
+                                disabled={enable || enableDisabled}
                                 style={{ 
                                     flex: 1, 
                                     padding: '8px',
@@ -1351,18 +1196,18 @@
                                     fontWeight: 'bold',
                                     border: 'none',
                                     borderRadius: '6px',
-                                    cursor: (isRunning || enableDisabled) ? 'not-allowed' : 'pointer',
-                                    background: isRunning ? '#555' : '#00ff88',
+                                    cursor: (enable || enableDisabled) ? 'not-allowed' : 'pointer',
+                                    background: enable ? '#555' : '#00ff88',
                                     color: '#1a1a2e',
-                                    opacity: (isRunning || enableDisabled) ? 0.5 : 1,
+                                    opacity: (enable || enableDisabled) ? 0.5 : 1,
                                     transition: 'all 0.2s'
                                 }}
                             >
                                 Start
                             </button>
                             <button 
-                                onClick={stopTimer} 
-                                disabled={!isRunning || enableDisabled}
+                                onClick={handleStopClick} 
+                                disabled={!enable || enableDisabled}
                                 style={{ 
                                     flex: 1, 
                                     padding: '8px',
@@ -1370,10 +1215,10 @@
                                     fontWeight: 'bold',
                                     border: 'none',
                                     borderRadius: '6px',
-                                    cursor: (!isRunning || enableDisabled) ? 'not-allowed' : 'pointer',
-                                    background: !isRunning ? '#555' : '#ff4444',
+                                    cursor: (!enable || enableDisabled) ? 'not-allowed' : 'pointer',
+                                    background: !enable ? '#555' : '#ff4444',
                                     color: '#1a1a2e',
-                                    opacity: (!isRunning || enableDisabled) ? 0.5 : 1,
+                                    opacity: (!enable || enableDisabled) ? 0.5 : 1,
                                     transition: 'all 0.2s'
                                 }}
                             >
@@ -1396,49 +1241,18 @@
 
         // Delay Timer Node
         function DelayTimerNode({ data, id }) {
-            const [delay, setDelay] = useState(1);
-            const [inputValue, setInputValue] = useState(null);
-            const [outputValue, setOutputValue] = useState(null);
-            const onUpdateRef = useRef(null);
-            const timeoutRef = useRef(null);
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            // Handle input overrides
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.delay !== undefined) setDelay(data.inputs.delay);
-                    if (data.inputs.input !== undefined) {
-                        const newValue = data.inputs.input;
-                        setInputValue(newValue);
-                        
-                        // Clear any pending timeout
-                        if (timeoutRef.current) {
-                            clearTimeout(timeoutRef.current);
-                        }
-                        
-                        // Set new timeout to forward value after delay
-                        timeoutRef.current = setTimeout(() => {
-                            setOutputValue(newValue);
-                            if (onUpdateRef.current) {
-                                onUpdateRef.current(id, { output: newValue });
-                            }
-                        }, delay * 1000);
-                    }
-                }
-            }, [data.inputs, delay, id]);
-
-            useEffect(() => {
-                return () => {
-                    if (timeoutRef.current) {
-                        clearTimeout(timeoutRef.current);
-                    }
-                };
-            }, []);
+            // Get values from server state
+            const delay = data.serverState?.inputs?.delay ?? 1;
+            const inputValue = data.serverState?.inputs?.input ?? null;
+            const outputValue = data.serverState?.outputs?.output ?? null;
 
             const delayDisabled = data.connectedInputs?.includes('in-delay');
+
+            const handleDelayChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'delay', parseFloat(e.target.value));
+                }
+            };
 
             return (
                 <div>
@@ -1460,7 +1274,7 @@
                             max="10"
                             step="0.5"
                             value={delay}
-                            onChange={(e) => setDelay(parseFloat(e.target.value))}
+                            onChange={handleDelayChange}
                             disabled={delayDisabled}
                             style={{ width: '100%' }}
                         />
@@ -1482,37 +1296,20 @@
 
         // Comparator Node
         function ComparatorNode({ data, id }) {
-            const [inputA, setInputA] = useState(0);
-            const [inputB, setInputB] = useState(0);
-            const [mode, setMode] = useState('>'); // '>', '<', '=='
-            const [output, setOutput] = useState(false);
-            const onUpdateRef = useRef(null);
+            // Get values from server state
+            const inputA = data.serverState?.inputs?.a ?? 0;
+            const inputB = data.serverState?.inputs?.b ?? 0;
+            const output = data.serverState?.outputs?.output ?? false;
+            
+            // Mode is stored in backend but we can track it locally for UI
+            const [mode, setMode] = useState('>');
 
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.a !== undefined) setInputA(data.inputs.a);
-                    if (data.inputs.b !== undefined) setInputB(data.inputs.b);
+            const handleModeChange = (newMode) => {
+                setMode(newMode);
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'mode', newMode);
                 }
-            }, [data.inputs]);
-
-            useEffect(() => {
-                let result = false;
-                if (mode === '>') {
-                    result = inputA > inputB;
-                } else if (mode === '<') {
-                    result = inputA < inputB;
-                } else if (mode === '==') {
-                    result = inputA === inputB;
-                }
-                setOutput(result);
-                if (onUpdateRef.current) {
-                    onUpdateRef.current(id, { output: result });
-                }
-            }, [inputA, inputB, mode, id]);
+            };
 
             return (
                 <div>
@@ -1534,7 +1331,7 @@
 
                         <div style={{ display: 'flex', gap: '5px', marginBottom: '10px' }}>
                             <button
-                                onClick={() => setMode('>')}
+                                onClick={() => handleModeChange('>')}
                                 style={{
                                     flex: 1,
                                     padding: '5px',
@@ -1551,7 +1348,7 @@
                                 &gt;
                             </button>
                             <button
-                                onClick={() => setMode('<')}
+                                onClick={() => handleModeChange('<')}
                                 style={{
                                     flex: 1,
                                     padding: '5px',
@@ -1568,7 +1365,7 @@
                                 &lt;
                             </button>
                             <button
-                                onClick={() => setMode('==')}
+                                onClick={() => handleModeChange('==')}
                                 style={{
                                     flex: 1,
                                     padding: '5px',
@@ -1601,29 +1398,10 @@
 
         // Bool Gate Node (passes signal through if enabled)
         function BoolGateNode({ data, id }) {
-            const [signal, setSignal] = useState(null);
-            const [enable, setEnable] = useState(false);
-            const [output, setOutput] = useState(null);
-            const onUpdateRef = useRef(null);
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.signal !== undefined) setSignal(data.inputs.signal);
-                    if (data.inputs.enable !== undefined) setEnable(data.inputs.enable);
-                }
-            }, [data.inputs]);
-
-            useEffect(() => {
-                const result = enable ? signal : null;
-                setOutput(result);
-                if (onUpdateRef.current) {
-                    onUpdateRef.current(id, { output: result });
-                }
-            }, [signal, enable, id]);
+            // Get values from server state
+            const signal = data.serverState?.inputs?.signal ?? null;
+            const enable = data.serverState?.inputs?.enable ?? false;
+            const output = data.serverState?.outputs?.output ?? null;
 
             return (
                 <div>
@@ -1655,34 +1433,26 @@
 
         // Cap/Clamp Node
         function CapNode({ data, id }) {
-            const [min, setMin] = useState(0);
-            const [max, setMax] = useState(100);
-            const [input, setInput] = useState(50);
-            const [output, setOutput] = useState(50);
-            const onUpdateRef = useRef(null);
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.min !== undefined) setMin(data.inputs.min);
-                    if (data.inputs.max !== undefined) setMax(data.inputs.max);
-                    if (data.inputs.input !== undefined) setInput(data.inputs.input);
-                }
-            }, [data.inputs]);
-
-            useEffect(() => {
-                const clamped = Math.max(min, Math.min(max, input));
-                setOutput(clamped);
-                if (onUpdateRef.current) {
-                    onUpdateRef.current(id, { output: clamped });
-                }
-            }, [input, min, max, id]);
+            // Get values from server state
+            const min = data.serverState?.inputs?.min ?? 0;
+            const max = data.serverState?.inputs?.max ?? 100;
+            const input = data.serverState?.inputs?.input ?? 50;
+            const output = data.serverState?.outputs?.output ?? 50;
 
             const minDisabled = data.connectedInputs?.includes('in-min');
             const maxDisabled = data.connectedInputs?.includes('in-max');
+
+            const handleMinChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'min', parseInt(e.target.value));
+                }
+            };
+
+            const handleMaxChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'max', parseInt(e.target.value));
+                }
+            };
 
             return (
                 <div>
@@ -1707,7 +1477,7 @@
                             min="0"
                             max="100"
                             value={min}
-                            onChange={(e) => setMin(parseInt(e.target.value))}
+                            onChange={handleMinChange}
                             disabled={minDisabled}
                             style={{ width: '100%' }}
                         />
@@ -1719,7 +1489,7 @@
                             min="0"
                             max="100"
                             value={max}
-                            onChange={(e) => setMax(parseInt(e.target.value))}
+                            onChange={handleMaxChange}
                             disabled={maxDisabled}
                             style={{ width: '100%' }}
                         />
@@ -1741,29 +1511,10 @@
 
         // Add Node
         function AddNode({ data, id }) {
-            const [inputA, setInputA] = useState(0);
-            const [inputB, setInputB] = useState(0);
-            const [output, setOutput] = useState(0);
-            const onUpdateRef = useRef(null);
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.a !== undefined) setInputA(data.inputs.a);
-                    if (data.inputs.b !== undefined) setInputB(data.inputs.b);
-                }
-            }, [data.inputs]);
-
-            useEffect(() => {
-                const result = inputA + inputB;
-                setOutput(result);
-                if (onUpdateRef.current) {
-                    onUpdateRef.current(id, { output: result });
-                }
-            }, [inputA, inputB, id]);
+            // Get values from server state
+            const inputA = data.serverState?.inputs?.a ?? 0;
+            const inputB = data.serverState?.inputs?.b ?? 0;
+            const output = data.serverState?.outputs?.output ?? 0;
 
             return (
                 <div>
@@ -1792,29 +1543,10 @@
 
         // Subtract Node
         function SubtractNode({ data, id }) {
-            const [inputA, setInputA] = useState(0);
-            const [inputB, setInputB] = useState(0);
-            const [output, setOutput] = useState(0);
-            const onUpdateRef = useRef(null);
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.a !== undefined) setInputA(data.inputs.a);
-                    if (data.inputs.b !== undefined) setInputB(data.inputs.b);
-                }
-            }, [data.inputs]);
-
-            useEffect(() => {
-                const result = inputA - inputB;
-                setOutput(result);
-                if (onUpdateRef.current) {
-                    onUpdateRef.current(id, { output: result });
-                }
-            }, [inputA, inputB, id]);
+            // Get values from server state
+            const inputA = data.serverState?.inputs?.a ?? 0;
+            const inputB = data.serverState?.inputs?.b ?? 0;
+            const output = data.serverState?.outputs?.output ?? 0;
 
             return (
                 <div>
@@ -1843,54 +1575,30 @@
 
         // History Display Node
         function HistoryDisplayNode({ data, id }) {
-            const [values, setValues] = useState([]);
-            const [isBoolean, setIsBoolean] = useState(null);
-            const [sampleRate, setSampleRate] = useState(0.5); // seconds
-            const [currentValue, setCurrentValue] = useState(null);
+            // Get values from server state
+            const currentValue = data.serverState?.inputs?.value ?? null;
+            const history = data.serverState?.data?.history ?? [];
+            const sampleRate = data.serverState?.inputs?.sampleRate ?? 0.5;
+            
             const canvasRef = useRef(null);
-            const currentValueRef = useRef(null); // Use ref to avoid resetting interval
-            const maxPoints = 50; // Keep last 50 data points
-
-            // Track current input value
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.value !== undefined) {
-                        const newValue = data.inputs.value;
-                        setCurrentValue(newValue);
-                        currentValueRef.current = newValue; // Update ref
-                        
-                        // Auto-detect type on first value
-                        if (isBoolean === null && newValue !== null) {
-                            setIsBoolean(typeof newValue === 'boolean');
-                        }
-                    }
-                    if (data.inputs.sampleRate !== undefined) {
-                        setSampleRate(Math.max(0.1, Math.min(3, data.inputs.sampleRate)));
-                    }
-                }
-            }, [data.inputs, isBoolean]);
-
-            // Periodically sample the current value
-            useEffect(() => {
-                const interval = setInterval(() => {
-                    if (currentValueRef.current !== null) {
-                        setValues(prev => {
-                            const updated = [...prev, currentValueRef.current];
-                            // Keep only last maxPoints
-                            return updated.slice(-maxPoints);
-                        });
-                    }
-                }, sampleRate * 1000);
-
-                return () => clearInterval(interval);
-            }, [sampleRate, maxPoints]); // Removed currentValue from dependencies
+            const maxPoints = 50;
+            
+            // Auto-detect type
+            const isBoolean = history.length > 0 ? typeof history[0] === 'boolean' : 
+                             (currentValue !== null ? typeof currentValue === 'boolean' : null);
 
             const sampleRateDisabled = data.connectedInputs?.includes('in-sample-rate');
+            
+            // Handle sample rate change
+            const handleSampleRateChange = (e) => {
+                const newRate = parseFloat(e.target.value);
+                data.sendUserInput(id, 'sampleRate', newRate);
+            };
 
             // Draw chart
             useEffect(() => {
                 const canvas = canvasRef.current;
-                if (!canvas || values.length === 0) return;
+                if (!canvas || history.length === 0) return;
 
                 const ctx = canvas.getContext('2d');
                 const width = canvas.width;
@@ -1912,16 +1620,15 @@
                 }
                 
                 // Draw data
-                if (values.length > 1) {
+                if (history.length > 1) {
                     const pointSpacing = width / (maxPoints - 1);
-                    const startIdx = Math.max(0, values.length - maxPoints);
                     
                     ctx.strokeStyle = isBoolean ? '#ff6b9d' : '#4ecdc4';
                     ctx.lineWidth = 2;
                     ctx.beginPath();
                     
-                    for (let i = 0; i < values.length; i++) {
-                        const val = values[i];
+                    for (let i = 0; i < history.length; i++) {
+                        const val = history[i];
                         const x = i * pointSpacing;
                         let y;
                         
@@ -1942,7 +1649,7 @@
                     ctx.stroke();
                 }
                 
-            }, [values, isBoolean]);
+            }, [history, isBoolean, maxPoints]);
 
             return (
                 <div>
@@ -1978,12 +1685,12 @@
                             max="3"
                             step="0.1"
                             value={sampleRate}
-                            onChange={(e) => setSampleRate(parseFloat(e.target.value))}
+                            onChange={handleSampleRateChange}
                             disabled={sampleRateDisabled}
                             style={{ width: '100%' }}
                         />
                         <div style={{ textAlign: 'center', fontSize: '11px', color: '#aaa' }}>
-                            {sampleRate}s | {values.length} points
+                            {sampleRate}s | {history.length} points
                         </div>
                     </div>
                 </div>
@@ -1992,54 +1699,29 @@
 
         // Integrator/Accumulator Node
         function IntegratorNode({ data, id }) {
-            const [accumulator, setAccumulator] = useState(0);
-            const [inputValue, setInputValue] = useState(0);
-            const [enabled, setEnabled] = useState(true);
-            const [resetTrigger, setResetTrigger] = useState(false);
-            const onUpdateRef = useRef(null);
-            const lastUpdateRef = useRef(Date.now());
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.input !== undefined) setInputValue(data.inputs.input);
-                    if (data.inputs.enabled !== undefined) setEnabled(data.inputs.enabled);
-                    if (data.inputs.reset !== undefined && data.inputs.reset && !resetTrigger) {
-                        setResetTrigger(true);
-                        setAccumulator(0);
-                    } else if (data.inputs.reset === false) {
-                        setResetTrigger(false);
-                    }
-                }
-            }, [data.inputs, resetTrigger]);
-
-            // Accumulate values periodically
-            useEffect(() => {
-                if (!enabled) return;
-
-                const interval = setInterval(() => {
-                    const now = Date.now();
-                    const deltaTime = (now - lastUpdateRef.current) / 1000; // seconds
-                    lastUpdateRef.current = now;
-
-                    setAccumulator(prev => {
-                        const newValue = prev + (inputValue * deltaTime);
-                        // Clamp to reasonable range
-                        const clamped = Math.max(-1000, Math.min(1000, newValue));
-                        if (onUpdateRef.current) {
-                            onUpdateRef.current(id, { output: Math.round(clamped) });
-                        }
-                        return clamped;
-                    });
-                }, 100); // Update every 100ms
-
-                return () => clearInterval(interval);
-            }, [enabled, inputValue, id]);
+            // Get values from server state
+            const inputValue = data.serverState?.inputs?.input ?? 0;
+            const enabled = data.serverState?.inputs?.enabled ?? true;
+            const resetTrigger = data.serverState?.inputs?.reset ?? false;
+            const accumulator = data.serverState?.outputs?.output ?? 0;
 
             const enabledDisabled = data.connectedInputs?.includes('in-enabled');
+
+            const handleEnabledToggle = () => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'enabled', !enabled);
+                }
+            };
+
+            const handleReset = () => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'reset', true);
+                    // Reset back to false after a brief moment
+                    setTimeout(() => {
+                        data.sendUserInput(id, 'reset', false);
+                    }, 100);
+                }
+            };
 
             return (
                 <div>
@@ -2059,7 +1741,7 @@
                     <div className="node-header">Integrator</div>
                     <div style={{ padding: '10px' }}>
                         <button 
-                            onClick={() => setEnabled(!enabled)}
+                            onClick={handleEnabledToggle}
                             disabled={enabledDisabled}
                             style={{ 
                                 width: '100%',
@@ -2080,7 +1762,7 @@
                         </button>
 
                         <button 
-                            onClick={() => setAccumulator(0)}
+                            onClick={handleReset}
                             style={{ 
                                 width: '100%',
                                 padding: '6px',
@@ -2116,50 +1798,27 @@
 
         // P Controller Node
         function PControllerNode({ data, id }) {
-            const [enabled, setEnabled] = useState(false);
-            const [pGain, setPGain] = useState(1.0);
-            const [setpoint, setSetpoint] = useState(50);
-            const [currentValue, setCurrentValue] = useState(0);
-            const [output, setOutput] = useState(0);
-            const onUpdateRef = useRef(null);
-
-            useEffect(() => {
-                onUpdateRef.current = data.onUpdate;
-            }, [data.onUpdate]);
-
-            // Handle input overrides
-            useEffect(() => {
-                if (data.inputs) {
-                    if (data.inputs.enabled !== undefined) setEnabled(data.inputs.enabled);
-                    if (data.inputs.pGain !== undefined) setPGain(data.inputs.pGain);
-                    if (data.inputs.setpoint !== undefined) setSetpoint(data.inputs.setpoint);
-                    if (data.inputs.currentValue !== undefined) setCurrentValue(data.inputs.currentValue);
-                }
-            }, [data.inputs]);
-
-            // Calculate P controller output
-            useEffect(() => {
-                if (enabled) {
-                    // P controller: output = P * error
-                    const error = setpoint - currentValue;
-                    const controlOutput = pGain * error;
-                    // Round to integer for output
-                    const intOutput = Math.round(controlOutput);
-                    setOutput(intOutput);
-                    
-                    if (onUpdateRef.current) {
-                        onUpdateRef.current(id, { output: intOutput });
-                    }
-                } else {
-                    setOutput(0);
-                    if (onUpdateRef.current) {
-                        onUpdateRef.current(id, { output: 0 });
-                    }
-                }
-            }, [enabled, pGain, setpoint, currentValue, id]);
+            // Get values from server state
+            const enabled = data.serverState?.inputs?.enabled ?? false;
+            const pGain = data.serverState?.inputs?.pGain ?? 1.0;
+            const setpoint = data.serverState?.inputs?.setpoint ?? 50;
+            const currentValue = data.serverState?.inputs?.currentValue ?? 0;
+            const output = data.serverState?.outputs?.output ?? 0;
 
             const enabledDisabled = data.connectedInputs?.includes('in-enabled');
             const pGainDisabled = data.connectedInputs?.includes('in-p-gain');
+
+            const handleEnabledToggle = () => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'enabled', !enabled);
+                }
+            };
+
+            const handlePGainChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'pGain', parseFloat(e.target.value));
+                }
+            };
 
             return (
                 <div>
@@ -2183,7 +1842,7 @@
                     <div className="node-header">P Controller</div>
                     <div style={{ padding: '10px' }}>
                         <button 
-                            onClick={() => setEnabled(!enabled)}
+                            onClick={handleEnabledToggle}
                             disabled={enabledDisabled}
                             style={{ 
                                 width: '100%',
@@ -2210,7 +1869,7 @@
                             max="5"
                             step="0.1"
                             value={pGain}
-                            onChange={(e) => setPGain(parseFloat(e.target.value))}
+                            onChange={handlePGainChange}
                             disabled={pGainDisabled}
                             style={{ width: '100%' }}
                         />
@@ -2431,14 +2090,132 @@
             const [flowName, setFlowName] = useState('');
             const [availableFlows, setAvailableFlows] = useState([]);
             const [notifications, setNotifications] = useState([]);
+            const [isExecuting, setIsExecuting] = useState(false);
             const nodeOutputsRef = useRef({});
             const edgesRef = useRef([]);
             const notificationIdRef = useRef(0);
+            const wsRef = useRef(null);
+            
+            // WebSocket connection
+            useEffect(() => {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws`;
+                const ws = new WebSocket(wsUrl);
+                
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    wsRef.current = ws;
+                };
+                
+                ws.onmessage = (event) => {
+                    const message = JSON.parse(event.data);
+                    
+                    if (message.type === 'node_state') {
+                        // Update node state from server
+                        console.log('Received state update:', message.nodeId, message.state);
+                        handleServerStateUpdate(message.nodeId, message.state);
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                };
+                
+                ws.onclose = () => {
+                    console.log('WebSocket disconnected');
+                    wsRef.current = null;
+                };
+                
+                return () => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.close();
+                    }
+                };
+            }, []);
             
             // Keep edges ref in sync
             useEffect(() => {
                 edgesRef.current = edges;
             }, [edges]);
+
+            // Send user input to server
+            const sendUserInput = useCallback((nodeId, control, value) => {
+                if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                    wsRef.current.send(JSON.stringify({
+                        type: 'user_input',
+                        nodeId: nodeId,
+                        control: control,
+                        value: value
+                    }));
+                }
+            }, []);
+
+            // Handle state updates from server
+            const handleServerStateUpdate = useCallback((nodeId, state) => {
+                setNodes(nds => nds.map(node => {
+                    if (node.id === nodeId) {
+                        return {
+                            ...node,
+                            data: {
+                                ...node.data,
+                                serverState: state
+                            }
+                        };
+                    }
+                    return node;
+                }));
+            }, [setNodes]);
+
+            // Start flow execution
+            const startExecution = async () => {
+                try {
+                    const response = await fetch('/api/flow/start', { method: 'POST' });
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        setIsExecuting(true);
+                        showNotification(data.message || 'Flow execution started', 'success');
+                    } else {
+                        showNotification(data.message || 'Failed to start execution', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error starting execution:', error);
+                    showNotification('Error starting execution: ' + error.message, 'error');
+                }
+            };
+
+            // Stop flow execution
+            const stopExecution = async () => {
+                try {
+                    const response = await fetch('/api/flow/stop', { method: 'POST' });
+                    if (response.ok) {
+                        setIsExecuting(false);
+                        showNotification('Flow execution stopped', 'success');
+                    }
+                } catch (error) {
+                    console.error('Error stopping execution:', error);
+                    showNotification('Error stopping execution', 'error');
+                }
+            };
+
+            // Load flow into server executor
+            const loadFlowIntoExecutor = async (flowData) => {
+                try {
+                    const response = await fetch('/api/flow/load', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(flowData)
+                    });
+                    
+                    if (response.ok) {
+                        console.log('Flow loaded into executor');
+                        return true;
+                    }
+                } catch (error) {
+                    console.error('Error loading flow into executor:', error);
+                }
+                return false;
+            };
 
             // Notification system
             const showNotification = useCallback((message, type = 'success') => {
@@ -2462,7 +2239,7 @@
 
             // Update connected inputs info whenever edges change
             useEffect(() => {
-                setNodes(nds => nds.map(node => {
+                const updatedNodes = nodes.map(node => {
                     const connectedInputs = edges
                         .filter(edge => edge.target === node.id)
                         .map(edge => edge.targetHandle);
@@ -2474,8 +2251,19 @@
                             connectedInputs
                         }
                     };
-                }));
-            }, [edges, setNodes]);
+                });
+                
+                setNodes(updatedNodes);
+
+                // Reload flow into executor when topology changes (debounced)
+                const timeoutId = setTimeout(() => {
+                    if (updatedNodes.length > 0) {
+                        loadFlowIntoExecutor({ nodes: updatedNodes, edges });
+                    }
+                }, 300);
+
+                return () => clearTimeout(timeoutId);
+            }, [edges]);
 
             // Helper to convert handle ID to input key (kebab-case to camelCase)
             const handleToInputKey = (handleId) => {
@@ -2485,50 +2273,8 @@
             };
 
             // Handle node output updates - stable reference
-            const handleNodeUpdate = useCallback((nodeId, outputs) => {
-                // Store outputs for this node
-                nodeOutputsRef.current[nodeId] = outputs;
-                
-                // Propagate immediately using current edges
-                const currentEdges = edgesRef.current;
-                
-                currentEdges.forEach(edge => {
-                    if (edge.source !== nodeId) return;
-
-                    const sourceHandle = edge.sourceHandle;
-                    let outputValue;
-                    
-                    // Determine output value based on source handle
-                    if (sourceHandle === 'out-on-off' || sourceHandle === 'out-value') {
-                        outputValue = outputs.onOff !== undefined ? outputs.onOff : outputs.value;
-                    } else if (sourceHandle === 'out-forward') {
-                        outputValue = outputs.forward;
-                    } else if (sourceHandle === 'out-speed') {
-                        outputValue = outputs.speed;
-                    } else if (sourceHandle === 'out-output') {
-                        // Generic output for logic gates and timers
-                        outputValue = outputs.output;
-                    }
-                    
-                    // Update target node
-                    setNodes(nds => nds.map(node => {
-                        if (node.id === edge.target) {
-                            const inputKey = handleToInputKey(edge.targetHandle);
-                            return {
-                                ...node,
-                                data: {
-                                    ...node.data,
-                                    inputs: {
-                                        ...node.data.inputs,
-                                        [inputKey]: outputValue
-                                    }
-                                }
-                            };
-                        }
-                        return node;
-                    }));
-                });
-            }, [setNodes]);
+            // No longer needed - execution happens server-side
+            // const handleNodeUpdate = useCallback((nodeId, outputs) => { ... }, []);
 
             // Validate connections based on port types
             const isValidConnection = useCallback((connection) => {
@@ -2704,10 +2450,11 @@
                         position,
                         data: { 
                             label: type === 'motorNode' ? 'Motor - Port A' : undefined,
-                            onUpdate: handleNodeUpdate,
+                            sendUserInput: sendUserInput,
                             inputs: {},
                             connectedInputs: [],
-                            deviceId: deviceId || null // Store device ID for tracking
+                            deviceId: deviceId || null, // Store device ID for tracking
+                            serverState: null // Will be populated by server
                         },
                     };
 
@@ -2718,7 +2465,7 @@
                         setUsedDevices(prev => new Set(prev).add(deviceId));
                     }
                 },
-                [reactFlowInstance, setNodes, handleNodeUpdate, usedDevices]
+                [reactFlowInstance, setNodes, sendUserInput, usedDevices]
             );
 
             const onDragStart = (event, nodeType, deviceId) => {
@@ -2791,12 +2538,13 @@
                     const flow = await response.json();
                     
                     if (flow.nodes && flow.edges) {
-                        // Restore onUpdate callback to loaded nodes
+                        // Add sendUserInput callback to loaded nodes
                         const nodesWithCallbacks = flow.nodes.map(node => ({
                             ...node,
                             data: {
                                 ...node.data,
-                                onUpdate: handleNodeUpdate
+                                sendUserInput: sendUserInput,
+                                serverState: null
                             }
                         }));
                         setNodes(nodesWithCallbacks || []);
@@ -2811,7 +2559,18 @@
                         });
                         setUsedDevices(devices);
                         setShowLoadModal(false);
-                        showNotification('Flow loaded successfully', 'success');
+                        
+                        // Load flow into server executor
+                        const loaded = await loadFlowIntoExecutor({ 
+                            nodes: nodesWithCallbacks, 
+                            edges: flow.edges 
+                        });
+                        
+                        if (loaded) {
+                            showNotification('Flow loaded successfully', 'success');
+                        } else {
+                            showNotification('Flow loaded but executor failed', 'warning');
+                        }
                     }
                 } catch (error) {
                     console.error('Error loading flow:', error);
@@ -2932,6 +2691,15 @@
                     <div className="header">
                         <h1>🚀 SlickNXT - Node-RED Interface</h1>
                         <div className="header-buttons">
+                            {isExecuting ? (
+                                <button className="btn btn-danger" onClick={stopExecution} title="Stop flow execution">
+                                    ⏹ Stop
+                                </button>
+                            ) : (
+                                <button className="btn btn-primary" onClick={startExecution} title="Start flow execution">
+                                    ▶ Start
+                                </button>
+                            )}
                             <button 
                                 className="btn btn-danger" 
                                 onClick={deleteSelected}
