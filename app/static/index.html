@@ -224,6 +224,11 @@
             box-shadow: 0 0 8px rgba(255, 230, 109, 0.5);
         }
 
+        .legend-dot-any {
+            background: #a8dadc;
+            box-shadow: 0 0 8px rgba(168, 218, 220, 0.5);
+        }
+
         .flow-canvas {
             flex: 1;
             background: #1a1a2e;
@@ -305,6 +310,11 @@
         .react-flow__handle[data-type="string"] {
             background: #ffe66d;
             box-shadow: 0 0 8px rgba(255, 230, 109, 0.5);
+        }
+
+        .react-flow__handle[data-type="any"] {
+            background: #a8dadc;
+            box-shadow: 0 0 8px rgba(168, 218, 220, 0.5);
         }
 
         .react-flow__edge-path {
@@ -668,16 +678,23 @@
                     <div className="node-header">Switch</div>
                     
                     <div className="node-controls">
-                        <div className="control-group">
-                            <label className="control-label">
-                                <input 
-                                    type="checkbox" 
-                                    checked={value} 
-                                    onChange={(e) => setValue(e.target.checked)}
-                                />
-                                {' '}{value ? 'ON' : 'OFF'}
-                            </label>
-                        </div>
+                        <button 
+                            onClick={() => setValue(!value)}
+                            style={{ 
+                                width: '100%',
+                                padding: '10px',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                background: value ? '#00ff88' : '#ff4444',
+                                color: '#1a1a2e',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {value ? 'ON' : 'OFF'}
+                        </button>
                     </div>
 
                     <Handle 
@@ -749,6 +766,425 @@
             );
         }
 
+        // AND Logic Gate Node
+        function AndNode({ data, id }) {
+            const [inputA, setInputA] = useState(false);
+            const [inputB, setInputB] = useState(false);
+            const [output, setOutput] = useState(false);
+            const onUpdateRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.a !== undefined) setInputA(data.inputs.a);
+                    if (data.inputs.b !== undefined) setInputB(data.inputs.b);
+                }
+            }, [data.inputs]);
+
+            useEffect(() => {
+                const result = inputA && inputB;
+                setOutput(result);
+                if (onUpdateRef.current) {
+                    onUpdateRef.current(id, { output: result });
+                }
+            }, [inputA, inputB, id]);
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-a" style={{ top: '30%' }} data-type="boolean" data-label="A" />
+                    <Handle type="target" position={Position.Left} id="in-b" style={{ top: '70%' }} data-type="boolean" data-label="B" />
+                    
+                    <div className="node-header">AND Gate</div>
+                    <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
+                        <div>A: {inputA ? '1' : '0'}</div>
+                        <div>B: {inputB ? '1' : '0'}</div>
+                        <div style={{ marginTop: '5px', fontWeight: 'bold' }}>OUT: {output ? '1' : '0'}</div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="boolean" data-label="Out" />
+                </div>
+            );
+        }
+
+        // OR Logic Gate Node
+        function OrNode({ data, id }) {
+            const [inputA, setInputA] = useState(false);
+            const [inputB, setInputB] = useState(false);
+            const [output, setOutput] = useState(false);
+            const onUpdateRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.a !== undefined) setInputA(data.inputs.a);
+                    if (data.inputs.b !== undefined) setInputB(data.inputs.b);
+                }
+            }, [data.inputs]);
+
+            useEffect(() => {
+                const result = inputA || inputB;
+                setOutput(result);
+                if (onUpdateRef.current) {
+                    onUpdateRef.current(id, { output: result });
+                }
+            }, [inputA, inputB, id]);
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-a" style={{ top: '30%' }} data-type="boolean" data-label="A" />
+                    <Handle type="target" position={Position.Left} id="in-b" style={{ top: '70%' }} data-type="boolean" data-label="B" />
+                    
+                    <div className="node-header">OR Gate</div>
+                    <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
+                        <div>A: {inputA ? '1' : '0'}</div>
+                        <div>B: {inputB ? '1' : '0'}</div>
+                        <div style={{ marginTop: '5px', fontWeight: 'bold' }}>OUT: {output ? '1' : '0'}</div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="boolean" data-label="Out" />
+                </div>
+            );
+        }
+
+        // XOR Logic Gate Node
+        function XorNode({ data, id }) {
+            const [inputA, setInputA] = useState(false);
+            const [inputB, setInputB] = useState(false);
+            const [output, setOutput] = useState(false);
+            const onUpdateRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.a !== undefined) setInputA(data.inputs.a);
+                    if (data.inputs.b !== undefined) setInputB(data.inputs.b);
+                }
+            }, [data.inputs]);
+
+            useEffect(() => {
+                const result = inputA !== inputB;
+                setOutput(result);
+                if (onUpdateRef.current) {
+                    onUpdateRef.current(id, { output: result });
+                }
+            }, [inputA, inputB, id]);
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-a" style={{ top: '30%' }} data-type="boolean" data-label="A" />
+                    <Handle type="target" position={Position.Left} id="in-b" style={{ top: '70%' }} data-type="boolean" data-label="B" />
+                    
+                    <div className="node-header">XOR Gate</div>
+                    <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
+                        <div>A: {inputA ? '1' : '0'}</div>
+                        <div>B: {inputB ? '1' : '0'}</div>
+                        <div style={{ marginTop: '5px', fontWeight: 'bold' }}>OUT: {output ? '1' : '0'}</div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="boolean" data-label="Out" />
+                </div>
+            );
+        }
+
+        // NOT Logic Gate Node
+        function NotNode({ data, id }) {
+            const [input, setInput] = useState(false);
+            const [output, setOutput] = useState(true);
+            const onUpdateRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            useEffect(() => {
+                if (data.inputs && data.inputs.input !== undefined) {
+                    setInput(data.inputs.input);
+                }
+            }, [data.inputs]);
+
+            useEffect(() => {
+                const result = !input;
+                setOutput(result);
+                if (onUpdateRef.current) {
+                    onUpdateRef.current(id, { output: result });
+                }
+            }, [input, id]);
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-input" style={{ top: '50%' }} data-type="boolean" data-label="In" />
+                    
+                    <div className="node-header">NOT Gate</div>
+                    <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
+                        <div>IN: {input ? '1' : '0'}</div>
+                        <div style={{ marginTop: '5px', fontWeight: 'bold' }}>OUT: {output ? '1' : '0'}</div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="boolean" data-label="Out" />
+                </div>
+            );
+        }
+
+        // Pulse Timer Node
+        function PulseTimerNode({ data, id }) {
+            const [onDuration, setOnDuration] = useState(2);
+            const [offDuration, setOffDuration] = useState(2);
+            const [output, setOutput] = useState(false);
+            const [isRunning, setIsRunning] = useState(false);
+            const [enable, setEnable] = useState(false);
+            const onUpdateRef = useRef(null);
+            const timerRef = useRef(null);
+            const intervalRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            // Handle input overrides
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.onDuration !== undefined) setOnDuration(data.inputs.onDuration);
+                    if (data.inputs.offDuration !== undefined) setOffDuration(data.inputs.offDuration);
+                    if (data.inputs.enable !== undefined) setEnable(data.inputs.enable);
+                }
+            }, [data.inputs]);
+
+            useEffect(() => {
+                if (onUpdateRef.current) {
+                    onUpdateRef.current(id, { output: output });
+                }
+            }, [output, id]);
+
+            const runPulseSequence = useCallback(() => {
+                setOutput(true);
+                
+                // Stay on for onDuration
+                timerRef.current = setTimeout(() => {
+                    setOutput(false);
+                    
+                    // Stay off for offDuration and loop
+                    timerRef.current = setTimeout(() => {
+                        runPulseSequence(); // Loop continuously
+                    }, offDuration * 1000);
+                }, onDuration * 1000);
+            }, [onDuration, offDuration]);
+
+            const startTimer = useCallback(() => {
+                setIsRunning(true);
+            }, []);
+
+            const stopTimer = useCallback(() => {
+                if (timerRef.current) {
+                    clearTimeout(timerRef.current);
+                    timerRef.current = null;
+                }
+                setIsRunning(false);
+                setOutput(false);
+            }, []);
+
+            // Handle running state and start/stop sequence
+            useEffect(() => {
+                if (isRunning) {
+                    runPulseSequence();
+                } else {
+                    if (timerRef.current) {
+                        clearTimeout(timerRef.current);
+                        timerRef.current = null;
+                    }
+                    setOutput(false); // Reset to OFF when stopped
+                }
+                
+                return () => {
+                    if (timerRef.current) {
+                        clearTimeout(timerRef.current);
+                    }
+                };
+            }, [isRunning, runPulseSequence]);
+
+            // Handle enable/disable from input
+            useEffect(() => {
+                if (enable) {
+                    startTimer();
+                } else {
+                    stopTimer();
+                }
+            }, [enable, startTimer, stopTimer]);
+
+            const onDurationDisabled = data.connectedInputs?.includes('in-on-duration');
+            const offDurationDisabled = data.connectedInputs?.includes('in-off-duration');
+            const enableDisabled = data.connectedInputs?.includes('in-enable');
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-enable" style={{ top: '20%' }} data-type="boolean" data-label="Enable" />
+                    <Handle type="target" position={Position.Left} id="in-on-duration" style={{ top: '50%' }} data-type="number" data-label="On Sec" />
+                    <Handle type="target" position={Position.Left} id="in-off-duration" style={{ top: '80%' }} data-type="number" data-label="Off Sec" />
+                    
+                    <div className="node-header">Pulse Timer</div>
+                    <div style={{ padding: '10px' }}>
+                        <label style={{ fontSize: '12px' }}>On Duration (s):</label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="10"
+                            step="0.5"
+                            value={onDuration}
+                            onChange={(e) => setOnDuration(parseFloat(e.target.value))}
+                            disabled={onDurationDisabled}
+                            style={{ width: '100%' }}
+                        />
+                        <div style={{ fontSize: '12px', textAlign: 'center' }}>{onDuration}s</div>
+
+                        <label style={{ fontSize: '12px', marginTop: '10px' }}>Off Duration (s):</label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="10"
+                            step="0.5"
+                            value={offDuration}
+                            onChange={(e) => setOffDuration(parseFloat(e.target.value))}
+                            disabled={offDurationDisabled}
+                            style={{ width: '100%' }}
+                        />
+                        <div style={{ fontSize: '12px', textAlign: 'center' }}>{offDuration}s</div>
+
+                        <div style={{ marginTop: '10px', display: 'flex', gap: '5px' }}>
+                            <button 
+                                onClick={startTimer} 
+                                disabled={isRunning || enableDisabled}
+                                style={{ 
+                                    flex: 1, 
+                                    padding: '8px',
+                                    fontSize: '12px',
+                                    fontWeight: 'bold',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    cursor: (isRunning || enableDisabled) ? 'not-allowed' : 'pointer',
+                                    background: isRunning ? '#555' : '#00ff88',
+                                    color: '#1a1a2e',
+                                    opacity: (isRunning || enableDisabled) ? 0.5 : 1,
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Start
+                            </button>
+                            <button 
+                                onClick={stopTimer} 
+                                disabled={!isRunning || enableDisabled}
+                                style={{ 
+                                    flex: 1, 
+                                    padding: '8px',
+                                    fontSize: '12px',
+                                    fontWeight: 'bold',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    cursor: (!isRunning || enableDisabled) ? 'not-allowed' : 'pointer',
+                                    background: !isRunning ? '#555' : '#ff4444',
+                                    color: '#1a1a2e',
+                                    opacity: (!isRunning || enableDisabled) ? 0.5 : 1,
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Stop
+                            </button>
+                        </div>
+
+                        <div style={{ marginTop: '10px', textAlign: 'center', fontSize: '12px', fontWeight: 'bold' }}>
+                            Output: {output ? 'ON' : 'OFF'}
+                        </div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="boolean" data-label="Out" />
+                </div>
+            );
+        }
+
+        // Delay Timer Node
+        function DelayTimerNode({ data, id }) {
+            const [delay, setDelay] = useState(1);
+            const [inputValue, setInputValue] = useState(null);
+            const [outputValue, setOutputValue] = useState(null);
+            const onUpdateRef = useRef(null);
+            const timeoutRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            // Handle input overrides
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.delay !== undefined) setDelay(data.inputs.delay);
+                    if (data.inputs.input !== undefined) {
+                        const newValue = data.inputs.input;
+                        setInputValue(newValue);
+                        
+                        // Clear any pending timeout
+                        if (timeoutRef.current) {
+                            clearTimeout(timeoutRef.current);
+                        }
+                        
+                        // Set new timeout to forward value after delay
+                        timeoutRef.current = setTimeout(() => {
+                            setOutputValue(newValue);
+                            if (onUpdateRef.current) {
+                                onUpdateRef.current(id, { output: newValue });
+                            }
+                        }, delay * 1000);
+                    }
+                }
+            }, [data.inputs, delay, id]);
+
+            useEffect(() => {
+                return () => {
+                    if (timeoutRef.current) {
+                        clearTimeout(timeoutRef.current);
+                    }
+                };
+            }, []);
+
+            const delayDisabled = data.connectedInputs?.includes('in-delay');
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-input" style={{ top: '30%' }} data-type="any" data-label="In" />
+                    <Handle type="target" position={Position.Left} id="in-delay" style={{ top: '70%' }} data-type="number" data-label="Delay" />
+                    
+                    <div className="node-header">Delay Timer</div>
+                    <div style={{ padding: '10px' }}>
+                        <label style={{ fontSize: '12px' }}>Delay (s):</label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="10"
+                            step="0.5"
+                            value={delay}
+                            onChange={(e) => setDelay(parseFloat(e.target.value))}
+                            disabled={delayDisabled}
+                            style={{ width: '100%' }}
+                        />
+                        <div style={{ fontSize: '12px', textAlign: 'center' }}>{delay}s</div>
+
+                        <div style={{ marginTop: '10px', fontSize: '12px' }}>
+                            <div>Input: {inputValue !== null ? String(inputValue) : '-'}</div>
+                            <div>Output: {outputValue !== null ? String(outputValue) : '-'}</div>
+                        </div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="any" data-label="Out" />
+                </div>
+            );
+        }
+
         // Define port types for each node type
         const portTypes = {
             motorNode: {
@@ -782,6 +1218,60 @@
                 inputs: {
                     'in-value': 'boolean'
                 }
+            },
+            andNode: {
+                inputs: {
+                    'in-a': 'boolean',
+                    'in-b': 'boolean'
+                },
+                outputs: {
+                    'out-output': 'boolean'
+                }
+            },
+            orNode: {
+                inputs: {
+                    'in-a': 'boolean',
+                    'in-b': 'boolean'
+                },
+                outputs: {
+                    'out-output': 'boolean'
+                }
+            },
+            xorNode: {
+                inputs: {
+                    'in-a': 'boolean',
+                    'in-b': 'boolean'
+                },
+                outputs: {
+                    'out-output': 'boolean'
+                }
+            },
+            notNode: {
+                inputs: {
+                    'in-input': 'boolean'
+                },
+                outputs: {
+                    'out-output': 'boolean'
+                }
+            },
+            pulseTimerNode: {
+                inputs: {
+                    'in-enable': 'boolean',
+                    'in-on-duration': 'number',
+                    'in-off-duration': 'number'
+                },
+                outputs: {
+                    'out-output': 'boolean'
+                }
+            },
+            delayTimerNode: {
+                inputs: {
+                    'in-input': 'any',
+                    'in-delay': 'number'
+                },
+                outputs: {
+                    'out-output': 'any'
+                }
             }
         };
 
@@ -790,7 +1280,13 @@
             dialNode: DialNode,
             switchNode: SwitchNode,
             numberDisplayNode: NumberDisplayNode,
-            boolDisplayNode: BoolDisplayNode
+            boolDisplayNode: BoolDisplayNode,
+            andNode: AndNode,
+            orNode: OrNode,
+            xorNode: XorNode,
+            notNode: NotNode,
+            pulseTimerNode: PulseTimerNode,
+            delayTimerNode: DelayTimerNode
         };
 
         // Main App Component
@@ -855,6 +1351,9 @@
                         outputValue = outputs.forward;
                     } else if (sourceHandle === 'out-speed') {
                         outputValue = outputs.speed;
+                    } else if (sourceHandle === 'out-output') {
+                        // Generic output for logic gates and timers
+                        outputValue = outputs.output;
                     }
                     
                     // Update target node
@@ -896,6 +1395,11 @@
                 const sourceType = sourcePortDef.outputs?.[connection.sourceHandle];
                 const targetType = targetPortDef.inputs?.[connection.targetHandle];
 
+                // "any" type is compatible with everything
+                if (sourceType === 'any' || targetType === 'any') {
+                    return true;
+                }
+
                 if (sourceType && targetType && sourceType !== targetType) {
                     console.warn(`❌ Cannot connect ${sourceType} to ${targetType}`);
                     return false;
@@ -920,6 +1424,9 @@
                                 outputValue = sourceOutputs.forward;
                             } else if (sourceHandle === 'out-speed') {
                                 outputValue = sourceOutputs.speed;
+                            } else if (sourceHandle === 'out-output') {
+                                // Generic output for logic gates and timers
+                                outputValue = sourceOutputs.output;
                             }
                             
                             setNodes(nds => nds.map(node => {
@@ -1203,6 +1710,75 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <h3>Logic & Timing</h3>
+                            <div className="node-palette">
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'andNode')}
+                                >
+                                    <div className="palette-node-title">⚡ AND Gate</div>
+                                    <div className="palette-node-desc">
+                                        Logical AND operation
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'orNode')}
+                                >
+                                    <div className="palette-node-title">⚡ OR Gate</div>
+                                    <div className="palette-node-desc">
+                                        Logical OR operation
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'xorNode')}
+                                >
+                                    <div className="palette-node-title">⚡ XOR Gate</div>
+                                    <div className="palette-node-desc">
+                                        Logical XOR operation
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'notNode')}
+                                >
+                                    <div className="palette-node-title">⚡ NOT Gate</div>
+                                    <div className="palette-node-desc">
+                                        Logical NOT operation
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'pulseTimerNode')}
+                                >
+                                    <div className="palette-node-title">⏱️ Pulse Timer</div>
+                                    <div className="palette-node-desc">
+                                        Timed on/off pulse
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'delayTimerNode')}
+                                >
+                                    <div className="palette-node-title">⏱️ Delay Timer</div>
+                                    <div className="palette-node-desc">
+                                        Delays signal by set time
+                                    </div>
+                                </div>
+                            </div>
                             
                             <div className="port-legend">
                                 <div className="legend-title">Port Types</div>
@@ -1217,6 +1793,10 @@
                                 <div className="legend-item">
                                     <div className="legend-dot legend-dot-string"></div>
                                     <span>String</span>
+                                </div>
+                                <div className="legend-item">
+                                    <div className="legend-dot legend-dot-any"></div>
+                                    <span>Any</span>
                                 </div>
                             </div>
                         </div>
