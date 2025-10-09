@@ -488,7 +488,11 @@
                 if (data.inputs) {
                     if (data.inputs.onOff !== undefined) setOnOff(data.inputs.onOff);
                     if (data.inputs.forward !== undefined) setForward(data.inputs.forward);
-                    if (data.inputs.speed !== undefined) setSpeed(data.inputs.speed);
+                    if (data.inputs.speed !== undefined) {
+                        // Clamp speed to 0-100 range
+                        const clampedSpeed = Math.max(0, Math.min(100, data.inputs.speed));
+                        setSpeed(clampedSpeed);
+                    }
                 }
             }, [data.inputs]);
 
@@ -1340,6 +1344,525 @@
             );
         }
 
+        // Cap/Clamp Node
+        function CapNode({ data, id }) {
+            const [min, setMin] = useState(0);
+            const [max, setMax] = useState(100);
+            const [input, setInput] = useState(50);
+            const [output, setOutput] = useState(50);
+            const onUpdateRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.min !== undefined) setMin(data.inputs.min);
+                    if (data.inputs.max !== undefined) setMax(data.inputs.max);
+                    if (data.inputs.input !== undefined) setInput(data.inputs.input);
+                }
+            }, [data.inputs]);
+
+            useEffect(() => {
+                const clamped = Math.max(min, Math.min(max, input));
+                setOutput(clamped);
+                if (onUpdateRef.current) {
+                    onUpdateRef.current(id, { output: clamped });
+                }
+            }, [input, min, max, id]);
+
+            const minDisabled = data.connectedInputs?.includes('in-min');
+            const maxDisabled = data.connectedInputs?.includes('in-max');
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-input" style={{ top: '25%' }} data-type="number" data-label="Input" />
+                    <Handle type="target" position={Position.Left} id="in-min" style={{ top: '55%' }} data-type="number" data-label="Min" />
+                    <Handle type="target" position={Position.Left} id="in-max" style={{ top: '85%' }} data-type="number" data-label="Max" />
+                    
+                    <div className="node-header">Cap/Clamp</div>
+                    <div style={{ padding: '10px' }}>
+                        <label style={{ fontSize: '12px' }}>Min:</label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={min}
+                            onChange={(e) => setMin(parseInt(e.target.value))}
+                            disabled={minDisabled}
+                            style={{ width: '100%' }}
+                        />
+                        <div style={{ fontSize: '12px', textAlign: 'center' }}>{min}</div>
+
+                        <label style={{ fontSize: '12px', marginTop: '10px' }}>Max:</label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={max}
+                            onChange={(e) => setMax(parseInt(e.target.value))}
+                            disabled={maxDisabled}
+                            style={{ width: '100%' }}
+                        />
+                        <div style={{ fontSize: '12px', textAlign: 'center' }}>{max}</div>
+
+                        <div style={{ marginTop: '10px', fontSize: '12px', textAlign: 'center' }}>
+                            <div>In: {input}</div>
+                            <div style={{ fontWeight: 'bold' }}>Out: {output}</div>
+                        </div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="number" data-label="Out" />
+                </div>
+            );
+        }
+
+        // Add Node
+        function AddNode({ data, id }) {
+            const [inputA, setInputA] = useState(0);
+            const [inputB, setInputB] = useState(0);
+            const [output, setOutput] = useState(0);
+            const onUpdateRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.a !== undefined) setInputA(data.inputs.a);
+                    if (data.inputs.b !== undefined) setInputB(data.inputs.b);
+                }
+            }, [data.inputs]);
+
+            useEffect(() => {
+                const result = inputA + inputB;
+                setOutput(result);
+                if (onUpdateRef.current) {
+                    onUpdateRef.current(id, { output: result });
+                }
+            }, [inputA, inputB, id]);
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-a" style={{ top: '30%' }} data-type="number" data-label="A" />
+                    <Handle type="target" position={Position.Left} id="in-b" style={{ top: '70%' }} data-type="number" data-label="B" />
+                    
+                    <div className="node-header">Add (+)</div>
+                    <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
+                        <div>{inputA} + {inputB}</div>
+                        <div style={{ marginTop: '5px', fontWeight: 'bold', fontSize: '14px' }}>= {output}</div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="number" data-label="Out" />
+                </div>
+            );
+        }
+
+        // Subtract Node
+        function SubtractNode({ data, id }) {
+            const [inputA, setInputA] = useState(0);
+            const [inputB, setInputB] = useState(0);
+            const [output, setOutput] = useState(0);
+            const onUpdateRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.a !== undefined) setInputA(data.inputs.a);
+                    if (data.inputs.b !== undefined) setInputB(data.inputs.b);
+                }
+            }, [data.inputs]);
+
+            useEffect(() => {
+                const result = inputA - inputB;
+                setOutput(result);
+                if (onUpdateRef.current) {
+                    onUpdateRef.current(id, { output: result });
+                }
+            }, [inputA, inputB, id]);
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-a" style={{ top: '30%' }} data-type="number" data-label="A" />
+                    <Handle type="target" position={Position.Left} id="in-b" style={{ top: '70%' }} data-type="number" data-label="B" />
+                    
+                    <div className="node-header">Subtract (-)</div>
+                    <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
+                        <div>{inputA} - {inputB}</div>
+                        <div style={{ marginTop: '5px', fontWeight: 'bold', fontSize: '14px' }}>= {output}</div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="number" data-label="Out" />
+                </div>
+            );
+        }
+
+        // History Display Node
+        function HistoryDisplayNode({ data, id }) {
+            const [values, setValues] = useState([]);
+            const [isBoolean, setIsBoolean] = useState(null);
+            const [sampleRate, setSampleRate] = useState(0.5); // seconds
+            const [currentValue, setCurrentValue] = useState(null);
+            const canvasRef = useRef(null);
+            const currentValueRef = useRef(null); // Use ref to avoid resetting interval
+            const maxPoints = 50; // Keep last 50 data points
+
+            // Track current input value
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.value !== undefined) {
+                        const newValue = data.inputs.value;
+                        setCurrentValue(newValue);
+                        currentValueRef.current = newValue; // Update ref
+                        
+                        // Auto-detect type on first value
+                        if (isBoolean === null && newValue !== null) {
+                            setIsBoolean(typeof newValue === 'boolean');
+                        }
+                    }
+                    if (data.inputs.sampleRate !== undefined) {
+                        setSampleRate(Math.max(0.1, Math.min(3, data.inputs.sampleRate)));
+                    }
+                }
+            }, [data.inputs, isBoolean]);
+
+            // Periodically sample the current value
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    if (currentValueRef.current !== null) {
+                        setValues(prev => {
+                            const updated = [...prev, currentValueRef.current];
+                            // Keep only last maxPoints
+                            return updated.slice(-maxPoints);
+                        });
+                    }
+                }, sampleRate * 1000);
+
+                return () => clearInterval(interval);
+            }, [sampleRate, maxPoints]); // Removed currentValue from dependencies
+
+            const sampleRateDisabled = data.connectedInputs?.includes('in-sample-rate');
+
+            // Draw chart
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas || values.length === 0) return;
+
+                const ctx = canvas.getContext('2d');
+                const width = canvas.width;
+                const height = canvas.height;
+                
+                // Clear canvas
+                ctx.fillStyle = '#0f3460';
+                ctx.fillRect(0, 0, width, height);
+                
+                // Draw grid lines
+                ctx.strokeStyle = '#1a1a2e';
+                ctx.lineWidth = 1;
+                for (let i = 0; i <= 4; i++) {
+                    const y = (height / 4) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(width, y);
+                    ctx.stroke();
+                }
+                
+                // Draw data
+                if (values.length > 1) {
+                    const pointSpacing = width / (maxPoints - 1);
+                    const startIdx = Math.max(0, values.length - maxPoints);
+                    
+                    ctx.strokeStyle = isBoolean ? '#ff6b9d' : '#4ecdc4';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    
+                    for (let i = 0; i < values.length; i++) {
+                        const val = values[i];
+                        const x = i * pointSpacing;
+                        let y;
+                        
+                        if (isBoolean) {
+                            y = val ? height * 0.1 : height * 0.9;
+                        } else {
+                            // Assume 0-100 range for numbers
+                            y = height - (val / 100) * height;
+                        }
+                        
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    
+                    ctx.stroke();
+                }
+                
+            }, [values, isBoolean]);
+
+            return (
+                <div>
+                    <Handle 
+                        type="target" 
+                        position={Position.Left} 
+                        id="in-value" 
+                        style={{ top: '50%' }}
+                        data-type="any"
+                        data-label="Value"
+                    />
+
+                    <div className="node-header">History Display</div>
+                    <canvas 
+                        ref={canvasRef} 
+                        width={200} 
+                        height={100}
+                        style={{ 
+                            display: 'block',
+                            background: '#0f3460',
+                            borderRadius: '4px',
+                            margin: '10px'
+                        }}
+                    />
+                    <div style={{ padding: '0 10px 10px 10px' }}>
+                        <label style={{ fontSize: '11px' }}>Sample Rate (s):</label>
+                        <input
+                            type="range"
+                            min="0.1"
+                            max="3"
+                            step="0.1"
+                            value={sampleRate}
+                            onChange={(e) => setSampleRate(parseFloat(e.target.value))}
+                            disabled={sampleRateDisabled}
+                            style={{ width: '100%' }}
+                        />
+                        <div style={{ textAlign: 'center', fontSize: '11px', color: '#aaa' }}>
+                            {sampleRate}s | {values.length} points
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Integrator/Accumulator Node
+        function IntegratorNode({ data, id }) {
+            const [accumulator, setAccumulator] = useState(0);
+            const [inputValue, setInputValue] = useState(0);
+            const [enabled, setEnabled] = useState(true);
+            const [resetTrigger, setResetTrigger] = useState(false);
+            const onUpdateRef = useRef(null);
+            const lastUpdateRef = useRef(Date.now());
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.input !== undefined) setInputValue(data.inputs.input);
+                    if (data.inputs.enabled !== undefined) setEnabled(data.inputs.enabled);
+                    if (data.inputs.reset !== undefined && data.inputs.reset && !resetTrigger) {
+                        setResetTrigger(true);
+                        setAccumulator(0);
+                    } else if (data.inputs.reset === false) {
+                        setResetTrigger(false);
+                    }
+                }
+            }, [data.inputs, resetTrigger]);
+
+            // Accumulate values periodically
+            useEffect(() => {
+                if (!enabled) return;
+
+                const interval = setInterval(() => {
+                    const now = Date.now();
+                    const deltaTime = (now - lastUpdateRef.current) / 1000; // seconds
+                    lastUpdateRef.current = now;
+
+                    setAccumulator(prev => {
+                        const newValue = prev + (inputValue * deltaTime);
+                        // Clamp to reasonable range
+                        const clamped = Math.max(-1000, Math.min(1000, newValue));
+                        if (onUpdateRef.current) {
+                            onUpdateRef.current(id, { output: Math.round(clamped) });
+                        }
+                        return clamped;
+                    });
+                }, 100); // Update every 100ms
+
+                return () => clearInterval(interval);
+            }, [enabled, inputValue, id]);
+
+            const enabledDisabled = data.connectedInputs?.includes('in-enabled');
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-input" style={{ top: '25%' }} data-type="number" data-label="Input" />
+                    <Handle type="target" position={Position.Left} id="in-enabled" style={{ top: '55%' }} data-type="boolean" data-label="Enable" />
+                    <Handle type="target" position={Position.Left} id="in-reset" style={{ top: '85%' }} data-type="boolean" data-label="Reset" />
+                    
+                    <div className="node-header">Integrator</div>
+                    <div style={{ padding: '10px' }}>
+                        <button 
+                            onClick={() => setEnabled(!enabled)}
+                            disabled={enabledDisabled}
+                            style={{ 
+                                width: '100%',
+                                padding: '8px',
+                                marginBottom: '10px',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: enabledDisabled ? 'not-allowed' : 'pointer',
+                                background: enabled ? '#00ff88' : '#ff4444',
+                                color: '#1a1a2e',
+                                opacity: enabledDisabled ? 0.5 : 1,
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {enabled ? 'ON' : 'OFF'}
+                        </button>
+
+                        <button 
+                            onClick={() => setAccumulator(0)}
+                            style={{ 
+                                width: '100%',
+                                padding: '6px',
+                                marginBottom: '10px',
+                                fontSize: '11px',
+                                fontWeight: 'bold',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                background: '#533483',
+                                color: '#00d4ff',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Reset
+                        </button>
+
+                        <div style={{ fontSize: '11px', textAlign: 'center' }}>
+                            <div>Input: {inputValue}</div>
+                            <div style={{ fontWeight: 'bold', marginTop: '5px', fontSize: '14px' }}>
+                                Σ = {Math.round(accumulator)}
+                            </div>
+                        </div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="number" data-label="Out" />
+                </div>
+            );
+        }
+
+        // P Controller Node
+        function PControllerNode({ data, id }) {
+            const [enabled, setEnabled] = useState(false);
+            const [pGain, setPGain] = useState(1.0);
+            const [setpoint, setSetpoint] = useState(50);
+            const [currentValue, setCurrentValue] = useState(0);
+            const [output, setOutput] = useState(0);
+            const onUpdateRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            // Handle input overrides
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.enabled !== undefined) setEnabled(data.inputs.enabled);
+                    if (data.inputs.pGain !== undefined) setPGain(data.inputs.pGain);
+                    if (data.inputs.setpoint !== undefined) setSetpoint(data.inputs.setpoint);
+                    if (data.inputs.currentValue !== undefined) setCurrentValue(data.inputs.currentValue);
+                }
+            }, [data.inputs]);
+
+            // Calculate P controller output
+            useEffect(() => {
+                if (enabled) {
+                    // P controller: output = P * error
+                    const error = setpoint - currentValue;
+                    const controlOutput = pGain * error;
+                    // Round to integer for output
+                    const intOutput = Math.round(controlOutput);
+                    setOutput(intOutput);
+                    
+                    if (onUpdateRef.current) {
+                        onUpdateRef.current(id, { output: intOutput });
+                    }
+                } else {
+                    setOutput(0);
+                    if (onUpdateRef.current) {
+                        onUpdateRef.current(id, { output: 0 });
+                    }
+                }
+            }, [enabled, pGain, setpoint, currentValue, id]);
+
+            const enabledDisabled = data.connectedInputs?.includes('in-enabled');
+            const pGainDisabled = data.connectedInputs?.includes('in-p-gain');
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-enabled" style={{ top: '15%' }} data-type="boolean" data-label="Enable" />
+                    <Handle type="target" position={Position.Left} id="in-p-gain" style={{ top: '35%' }} data-type="number" data-label="P Gain" />
+                    <Handle type="target" position={Position.Left} id="in-setpoint" style={{ top: '60%' }} data-type="number" data-label="Setpoint" />
+                    <Handle type="target" position={Position.Left} id="in-current-value" style={{ top: '85%' }} data-type="number" data-label="Current" />
+                    
+                    <div className="node-header">P Controller</div>
+                    <div style={{ padding: '10px' }}>
+                        <button 
+                            onClick={() => setEnabled(!enabled)}
+                            disabled={enabledDisabled}
+                            style={{ 
+                                width: '100%',
+                                padding: '8px',
+                                marginBottom: '10px',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: enabledDisabled ? 'not-allowed' : 'pointer',
+                                background: enabled ? '#00ff88' : '#ff4444',
+                                color: '#1a1a2e',
+                                opacity: enabledDisabled ? 0.5 : 1,
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {enabled ? 'ON' : 'OFF'}
+                        </button>
+
+                        <label style={{ fontSize: '12px' }}>P Gain:</label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="5"
+                            step="0.1"
+                            value={pGain}
+                            onChange={(e) => setPGain(parseFloat(e.target.value))}
+                            disabled={pGainDisabled}
+                            style={{ width: '100%' }}
+                        />
+                        <div style={{ fontSize: '12px', textAlign: 'center' }}>{pGain.toFixed(1)}</div>
+
+                        <div style={{ marginTop: '10px', fontSize: '11px', textAlign: 'center' }}>
+                            <div>Setpoint: {setpoint}</div>
+                            <div>Current: {currentValue}</div>
+                            <div>Error: {setpoint - currentValue}</div>
+                            <div style={{ fontWeight: 'bold', marginTop: '5px' }}>Output: {output}</div>
+                        </div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="number" data-label="Out" />
+                </div>
+            );
+        }
+
         // Define port types for each node type
         const portTypes = {
             motorNode: {
@@ -1445,6 +1968,61 @@
                 outputs: {
                     'out-output': 'any'
                 }
+            },
+            capNode: {
+                inputs: {
+                    'in-input': 'number',
+                    'in-min': 'number',
+                    'in-max': 'number'
+                },
+                outputs: {
+                    'out-output': 'number'
+                }
+            },
+            addNode: {
+                inputs: {
+                    'in-a': 'number',
+                    'in-b': 'number'
+                },
+                outputs: {
+                    'out-output': 'number'
+                }
+            },
+            subtractNode: {
+                inputs: {
+                    'in-a': 'number',
+                    'in-b': 'number'
+                },
+                outputs: {
+                    'out-output': 'number'
+                }
+            },
+            historyDisplayNode: {
+                inputs: {
+                    'in-value': 'any',
+                    'in-sample-rate': 'number'
+                }
+            },
+            pControllerNode: {
+                inputs: {
+                    'in-enabled': 'boolean',
+                    'in-p-gain': 'number',
+                    'in-setpoint': 'number',
+                    'in-current-value': 'number'
+                },
+                outputs: {
+                    'out-output': 'number'
+                }
+            },
+            integratorNode: {
+                inputs: {
+                    'in-input': 'number',
+                    'in-enabled': 'boolean',
+                    'in-reset': 'boolean'
+                },
+                outputs: {
+                    'out-output': 'number'
+                }
             }
         };
 
@@ -1461,7 +2039,13 @@
             pulseTimerNode: PulseTimerNode,
             delayTimerNode: DelayTimerNode,
             comparatorNode: ComparatorNode,
-            boolGateNode: BoolGateNode
+            boolGateNode: BoolGateNode,
+            capNode: CapNode,
+            addNode: AddNode,
+            subtractNode: SubtractNode,
+            historyDisplayNode: HistoryDisplayNode,
+            pControllerNode: PControllerNode,
+            integratorNode: IntegratorNode
         };
 
         // Main App Component
@@ -1882,6 +2466,78 @@
                                     <div className="palette-node-title">💡 Bool Display</div>
                                     <div className="palette-node-desc">
                                         Shows on/off state (red/green)
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'historyDisplayNode')}
+                                >
+                                    <div className="palette-node-title">📈 History Display</div>
+                                    <div className="palette-node-desc">
+                                        Shows signal over time
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h3>Math & Processing</h3>
+                            <div className="node-palette">
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'capNode')}
+                                >
+                                    <div className="palette-node-title">📏 Cap/Clamp</div>
+                                    <div className="palette-node-desc">
+                                        Limit value to min/max range
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'addNode')}
+                                >
+                                    <div className="palette-node-title">➕ Add</div>
+                                    <div className="palette-node-desc">
+                                        Add two numbers
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'subtractNode')}
+                                >
+                                    <div className="palette-node-title">➖ Subtract</div>
+                                    <div className="palette-node-desc">
+                                        Subtract two numbers
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h3>Control</h3>
+                            <div className="node-palette">
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'pControllerNode')}
+                                >
+                                    <div className="palette-node-title">🎛️ P Controller</div>
+                                    <div className="palette-node-desc">
+                                        Proportional feedback control
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'integratorNode')}
+                                >
+                                    <div className="palette-node-title">∫ Integrator</div>
+                                    <div className="palette-node-desc">
+                                        Accumulates values over time
                                     </div>
                                 </div>
                             </div>
