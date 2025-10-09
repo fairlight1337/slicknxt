@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SlickNXT - Node-RED Interface for NXT</title>
+    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/umd/index.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reactflow@11.10.1/dist/style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+        }
+
+        #root {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #16213e;
+            padding: 15px 20px;
+            border-bottom: 2px solid #0f3460;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #00d4ff;
+            font-weight: 600;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn-danger {
+            background: #e63946;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #d62828;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+            opacity: 0.5;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #00d4ff;
+            color: #1a1a2e;
+        }
+
+        .btn-primary:hover {
+            background: #00b8e6;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #533483;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #6a45a0;
+            transform: translateY(-1px);
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: #16213e;
+            border-right: 2px solid #0f3460;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            color: #00d4ff;
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .node-palette {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .palette-node {
+            background: #0f3460;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: grab;
+            border: 2px solid #533483;
+            transition: all 0.2s;
+        }
+
+        .palette-node:hover {
+            border-color: #00d4ff;
+            transform: translateX(5px);
+        }
+
+        .palette-node:active {
+            cursor: grabbing;
+        }
+
+        .palette-node-title {
+            font-weight: 600;
+            color: #00d4ff;
+            margin-bottom: 5px;
+        }
+
+        .palette-node-desc {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .port-legend {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #0f3460;
+        }
+
+        .legend-title {
+            font-size: 14px;
+            color: #00d4ff;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid #16213e;
+        }
+
+        .legend-dot-boolean {
+            background: #ff6b9d;
+            box-shadow: 0 0 8px rgba(255, 107, 157, 0.5);
+        }
+
+        .legend-dot-number {
+            background: #4ecdc4;
+            box-shadow: 0 0 8px rgba(78, 205, 196, 0.5);
+        }
+
+        .legend-dot-string {
+            background: #ffe66d;
+            box-shadow: 0 0 8px rgba(255, 230, 109, 0.5);
+        }
+
+        .flow-canvas {
+            flex: 1;
+            background: #1a1a2e;
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .react-flow__node {
+            background: #16213e;
+            border: 2px solid #533483;
+            border-radius: 8px;
+            padding: 15px;
+            min-width: 200px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .react-flow__node.selected {
+            border-color: #00d4ff;
+            box-shadow: 0 0 0 2px #00d4ff33;
+        }
+
+        .react-flow__handle {
+            background: #00d4ff;
+            border: 2px solid #16213e;
+            width: 10px !important;
+            height: 10px !important;
+            min-width: 10px !important;
+            min-height: 10px !important;
+            max-width: 10px !important;
+            max-height: 10px !important;
+            position: absolute;
+            border-radius: 50%;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        .react-flow__handle-left {
+            left: -7px !important;
+        }
+
+        .react-flow__handle-right {
+            right: -7px !important;
+        }
+
+        /* Port labels using data attributes */
+        .react-flow__handle[data-type]::before {
+            content: attr(data-label);
+            position: absolute;
+            font-size: 10px;
+            color: #888;
+            white-space: nowrap;
+            pointer-events: none;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .react-flow__handle-left[data-type]::before {
+            right: 15px;
+            text-align: right;
+        }
+
+        .react-flow__handle-right[data-type]::before {
+            left: 15px;
+            text-align: left;
+        }
+
+        /* Type-specific handle colors */
+        .react-flow__handle[data-type="boolean"] {
+            background: #ff6b9d;
+            box-shadow: 0 0 8px rgba(255, 107, 157, 0.5);
+        }
+
+        .react-flow__handle[data-type="number"] {
+            background: #4ecdc4;
+            box-shadow: 0 0 8px rgba(78, 205, 196, 0.5);
+        }
+
+        .react-flow__handle[data-type="string"] {
+            background: #ffe66d;
+            box-shadow: 0 0 8px rgba(255, 230, 109, 0.5);
+        }
+
+        .react-flow__edge-path {
+            stroke: #533483;
+            stroke-width: 2;
+        }
+
+        .react-flow__edge.selected .react-flow__edge-path {
+            stroke: #00d4ff;
+        }
+
+        .node-header {
+            color: #00d4ff;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .node-ports {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .port-group {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 8px;
+        }
+
+        .port-group-title {
+            font-weight: 600;
+            color: #00d4ff;
+            margin-bottom: 5px;
+        }
+
+        .port-item {
+            padding: 4px 0;
+            border-left: 2px solid #533483;
+            padding-left: 8px;
+        }
+
+        .node-controls {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #0f3460;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+        }
+
+        .control-label {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .control-input {
+            width: 100%;
+            padding: 6px;
+            background: #0f3460;
+            border: 1px solid #533483;
+            border-radius: 4px;
+            color: #eee;
+            font-size: 12px;
+        }
+
+        .control-input:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .status-on {
+            background: #00ff88;
+            box-shadow: 0 0 8px #00ff88;
+        }
+
+        .status-off {
+            background: #ff4444;
+            box-shadow: 0 0 8px #ff4444;
+        }
+
+        .react-flow__background {
+            background-color: #1a1a2e;
+        }
+
+        .react-flow__controls {
+            background: #16213e;
+            border: 2px solid #0f3460;
+        }
+
+        .react-flow__controls button {
+            background: #0f3460;
+            border-bottom: 1px solid #0f3460;
+            color: #00d4ff;
+        }
+
+        .react-flow__controls button:hover {
+            background: #533483;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useCallback, useRef, useEffect } = React;
+        const { ReactFlow, Controls, Background, useNodesState, useEdgesState, addEdge, Handle, Position } = window.ReactFlow;
+
+        // Motor Node Component
+        function MotorNode({ data, id }) {
+            const [onOff, setOnOff] = useState(false);
+            const [forward, setForward] = useState(true);
+            const [speed, setSpeed] = useState(50);
+            const [actualOnOff, setActualOnOff] = useState(false);
+            const [actualSpeed, setActualSpeed] = useState(0);
+            const [actualForward, setActualForward] = useState(true);
+
+            const executeNode = useCallback(async () => {
+                const inputs = {
+                    on_off: onOff,
+                    forward: forward,
+                    speed: speed
+                };
+
+                try {
+                    const response = await fetch(`/api/nodes/execute?node_id=${id}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(inputs)
+                    });
+                    
+                    const result = await response.json();
+                    if (result.outputs) {
+                        setActualOnOff(result.outputs.actual_on_off);
+                        setActualSpeed(result.outputs.actual_speed);
+                        setActualForward(result.outputs.actual_forward);
+                    }
+                } catch (error) {
+                    console.error('Error executing node:', error);
+                }
+            }, [onOff, forward, speed, id]);
+
+            useEffect(() => {
+                executeNode();
+            }, [onOff, forward, speed, executeNode]);
+
+            return (
+                <div>
+                    {/* Input Handles */}
+                    <Handle 
+                        type="target" 
+                        position={Position.Left} 
+                        id="in-on-off" 
+                        style={{ top: '30px' }}
+                        data-type="boolean"
+                        data-label="On/Off"
+                    />
+                    <Handle 
+                        type="target" 
+                        position={Position.Left} 
+                        id="in-forward" 
+                        style={{ top: '60px' }}
+                        data-type="boolean"
+                        data-label="Forward"
+                    />
+                    <Handle 
+                        type="target" 
+                        position={Position.Left} 
+                        id="in-speed" 
+                        style={{ top: '90px' }}
+                        data-type="number"
+                        data-label="Speed"
+                    />
+
+                    <div className="node-header">Motor Controller</div>
+                    
+                    <div className="node-controls">
+                        <div className="control-group">
+                            <label className="control-label">
+                                <input 
+                                    type="checkbox" 
+                                    checked={onOff} 
+                                    onChange={(e) => setOnOff(e.target.checked)}
+                                />
+                                {' '}On/Off
+                            </label>
+                        </div>
+
+                        <div className="control-group">
+                            <label className="control-label">
+                                <input 
+                                    type="checkbox" 
+                                    checked={forward} 
+                                    onChange={(e) => setForward(e.target.checked)}
+                                />
+                                {' '}Forward
+                            </label>
+                        </div>
+
+                        <div className="control-group">
+                            <label className="control-label">Speed: {speed}</label>
+                            <input 
+                                type="range" 
+                                min="0" 
+                                max="100" 
+                                value={speed}
+                                onChange={(e) => setSpeed(parseInt(e.target.value))}
+                                className="control-input"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="node-ports">
+                        <div className="port-group">
+                            <div className="port-group-title">Outputs:</div>
+                            <div className="port-item">
+                                <span className={`status-indicator ${actualOnOff ? 'status-on' : 'status-off'}`}></span>
+                                Status: {actualOnOff ? 'ON' : 'OFF'}
+                            </div>
+                            <div className="port-item">Speed: {actualSpeed}</div>
+                            <div className="port-item">Direction: {actualForward ? 'Forward' : 'Reverse'}</div>
+                        </div>
+                    </div>
+
+                    {/* Output Handles */}
+                    <Handle 
+                        type="source" 
+                        position={Position.Right} 
+                        id="out-status" 
+                        style={{ top: '30px' }}
+                        data-type="boolean"
+                        data-label="Status"
+                    />
+                    <Handle 
+                        type="source" 
+                        position={Position.Right} 
+                        id="out-speed" 
+                        style={{ top: '60px' }}
+                        data-type="number"
+                        data-label="Speed"
+                    />
+                    <Handle 
+                        type="source" 
+                        position={Position.Right} 
+                        id="out-direction" 
+                        style={{ top: '90px' }}
+                        data-type="boolean"
+                        data-label="Direction"
+                    />
+                </div>
+            );
+        }
+
+        // Define port types for each node type
+        const portTypes = {
+            motorNode: {
+                inputs: {
+                    'in-on-off': 'boolean',
+                    'in-forward': 'boolean',
+                    'in-speed': 'number'
+                },
+                outputs: {
+                    'out-status': 'boolean',
+                    'out-speed': 'number',
+                    'out-direction': 'boolean'
+                }
+            }
+        };
+
+        const nodeTypes = {
+            motorNode: MotorNode,
+        };
+
+        // Main App Component
+        function App() {
+            const reactFlowWrapper = useRef(null);
+            const [nodes, setNodes, onNodesChange] = useNodesState([]);
+            const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+            const [reactFlowInstance, setReactFlowInstance] = useState(null);
+            const [selectedEdge, setSelectedEdge] = useState(null);
+
+            // Validate connections based on port types
+            const isValidConnection = useCallback((connection) => {
+                // Find the source and target nodes
+                const sourceNode = nodes.find(n => n.id === connection.source);
+                const targetNode = nodes.find(n => n.id === connection.target);
+
+                if (!sourceNode || !targetNode) {
+                    return true;
+                }
+
+                // Get port type information
+                const sourcePortDef = portTypes[sourceNode.type];
+                const targetPortDef = portTypes[targetNode.type];
+
+                if (!sourcePortDef || !targetPortDef) {
+                    return true;
+                }
+
+                const sourceType = sourcePortDef.outputs?.[connection.sourceHandle];
+                const targetType = targetPortDef.inputs?.[connection.targetHandle];
+
+                // Only allow connections between same types
+                if (sourceType && targetType && sourceType !== targetType) {
+                    console.warn(`❌ Cannot connect ${sourceType} to ${targetType}`);
+                    return false;
+                }
+
+                return true;
+            }, [nodes]);
+
+            const onConnect = useCallback(
+                (params) => setEdges((eds) => addEdge(params, eds)),
+                [setEdges]
+            );
+
+            // Handle edge selection
+            const onEdgeClick = useCallback((event, edge) => {
+                event.stopPropagation();
+                setSelectedEdge(edge.id);
+            }, []);
+
+            // Clear selection when clicking on canvas
+            const onPaneClick = useCallback(() => {
+                setSelectedEdge(null);
+            }, []);
+
+            // Delete selected edge
+            const deleteSelectedEdge = useCallback(() => {
+                if (selectedEdge) {
+                    setEdges((eds) => eds.filter((e) => e.id !== selectedEdge));
+                    setSelectedEdge(null);
+                }
+            }, [selectedEdge, setEdges]);
+
+            const onDragOver = useCallback((event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+            }, []);
+
+            const onDrop = useCallback(
+                (event) => {
+                    event.preventDefault();
+
+                    const type = event.dataTransfer.getData('application/reactflow');
+                    if (typeof type === 'undefined' || !type) {
+                        return;
+                    }
+
+                    const position = reactFlowInstance.screenToFlowPosition({
+                        x: event.clientX,
+                        y: event.clientY,
+                    });
+
+                    const newNode = {
+                        id: `${type}-${Date.now()}`,
+                        type,
+                        position,
+                        data: { label: `${type} node` },
+                    };
+
+                    setNodes((nds) => nds.concat(newNode));
+                },
+                [reactFlowInstance, setNodes]
+            );
+
+            const onDragStart = (event, nodeType) => {
+                event.dataTransfer.setData('application/reactflow', nodeType);
+                event.dataTransfer.effectAllowed = 'move';
+            };
+
+            const saveFlow = async () => {
+                const flow = {
+                    nodes: nodes,
+                    edges: edges
+                };
+
+                try {
+                    const response = await fetch('/api/flows/save', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(flow)
+                    });
+                    const result = await response.json();
+                    alert(result.message);
+                } catch (error) {
+                    console.error('Error saving flow:', error);
+                    alert('Error saving flow');
+                }
+            };
+
+            const loadFlow = async () => {
+                try {
+                    const response = await fetch('/api/flows/load');
+                    const flow = await response.json();
+                    if (flow.nodes && flow.edges) {
+                        setNodes(flow.nodes || []);
+                        setEdges(flow.edges || []);
+                    }
+                } catch (error) {
+                    console.error('Error loading flow:', error);
+                }
+            };
+
+            return (
+                <>
+                    <div className="header">
+                        <h1>🚀 SlickNXT - Node-RED Interface</h1>
+                        <div className="header-buttons">
+                            <button 
+                                className="btn btn-danger" 
+                                onClick={deleteSelectedEdge}
+                                disabled={!selectedEdge}
+                                title="Delete selected connection"
+                            >
+                                🗑️ Delete Connection
+                            </button>
+                            <button className="btn btn-secondary" onClick={loadFlow}>Load Flow</button>
+                            <button className="btn btn-primary" onClick={saveFlow}>Save Flow</button>
+                        </div>
+                    </div>
+                    <div className="main-container">
+                        <div className="sidebar">
+                            <h2>Node Palette</h2>
+                            <div className="node-palette">
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'motorNode')}
+                                >
+                                    <div className="palette-node-title">⚙️ Motor</div>
+                                    <div className="palette-node-desc">
+                                        Control NXT motor with speed and direction
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="port-legend">
+                                <div className="legend-title">Port Types</div>
+                                <div className="legend-item">
+                                    <div className="legend-dot legend-dot-boolean"></div>
+                                    <span>Boolean</span>
+                                </div>
+                                <div className="legend-item">
+                                    <div className="legend-dot legend-dot-number"></div>
+                                    <span>Number</span>
+                                </div>
+                                <div className="legend-item">
+                                    <div className="legend-dot legend-dot-string"></div>
+                                    <span>String</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flow-canvas" ref={reactFlowWrapper}>
+                            <ReactFlow
+                                nodes={nodes}
+                                edges={edges}
+                                onNodesChange={onNodesChange}
+                                onEdgesChange={onEdgesChange}
+                                onConnect={onConnect}
+                                onEdgeClick={onEdgeClick}
+                                onPaneClick={onPaneClick}
+                                onInit={setReactFlowInstance}
+                                onDrop={onDrop}
+                                onDragOver={onDragOver}
+                                nodeTypes={nodeTypes}
+                                isValidConnection={isValidConnection}
+                                fitView
+                            >
+                                <Background color="#0f3460" gap={16} />
+                                <Controls />
+                            </ReactFlow>
+                        </div>
+                    </div>
+                </>
+            );
+        }
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
