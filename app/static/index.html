@@ -119,6 +119,22 @@
             font-weight: 600;
         }
 
+        .sidebar h3 {
+            color: #00d4ff;
+            font-size: 14px;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            font-weight: 600;
+            padding-top: 15px;
+            border-top: 1px solid #0f3460;
+        }
+
+        .sidebar h3:first-of-type {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+        }
+
         .node-palette {
             display: flex;
             flex-direction: column;
@@ -353,6 +369,11 @@
             border-color: #00d4ff;
         }
 
+        .control-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .status-indicator {
             display: inline-block;
             width: 8px;
@@ -369,6 +390,32 @@
         .status-off {
             background: #ff4444;
             box-shadow: 0 0 8px #ff4444;
+        }
+
+        .display-value {
+            font-size: 32px;
+            font-weight: 700;
+            text-align: center;
+            padding: 20px;
+            color: #00d4ff;
+        }
+
+        .display-bool {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin: 10px auto;
+            box-shadow: 0 0 20px currentColor;
+        }
+
+        .display-bool-on {
+            background: #00ff88;
+            color: #00ff88;
+        }
+
+        .display-bool-off {
+            background: #ff4444;
+            color: #ff4444;
         }
 
         .react-flow__background {
@@ -395,46 +442,45 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useCallback, useRef, useEffect } = React;
-        const { ReactFlow, Controls, Background, useNodesState, useEdgesState, addEdge, Handle, Position } = window.ReactFlow;
+        const { useState, useCallback, useRef, useEffect, useMemo } = React;
+        const { ReactFlow, Controls, Background, useNodesState, useEdgesState, addEdge, Handle, Position, useReactFlow } = window.ReactFlow;
 
         // Motor Node Component
         function MotorNode({ data, id }) {
             const [onOff, setOnOff] = useState(false);
             const [forward, setForward] = useState(true);
             const [speed, setSpeed] = useState(50);
-            const [actualOnOff, setActualOnOff] = useState(false);
-            const [actualSpeed, setActualSpeed] = useState(0);
-            const [actualForward, setActualForward] = useState(true);
+            const onUpdateRef = useRef(null);
 
-            const executeNode = useCallback(async () => {
-                const inputs = {
-                    on_off: onOff,
-                    forward: forward,
-                    speed: speed
-                };
-
-                try {
-                    const response = await fetch(`/api/nodes/execute?node_id=${id}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(inputs)
-                    });
-                    
-                    const result = await response.json();
-                    if (result.outputs) {
-                        setActualOnOff(result.outputs.actual_on_off);
-                        setActualSpeed(result.outputs.actual_speed);
-                        setActualForward(result.outputs.actual_forward);
-                    }
-                } catch (error) {
-                    console.error('Error executing node:', error);
-                }
-            }, [onOff, forward, speed, id]);
-
+            // Keep onUpdate ref current
             useEffect(() => {
-                executeNode();
-            }, [onOff, forward, speed, executeNode]);
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            // Check if handles are connected from data
+            const isOnOffConnected = data.connectedInputs?.includes('in-on-off') || false;
+            const isForwardConnected = data.connectedInputs?.includes('in-forward') || false;
+            const isSpeedConnected = data.connectedInputs?.includes('in-speed') || false;
+
+            // Use data from connected inputs if available
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.onOff !== undefined) setOnOff(data.inputs.onOff);
+                    if (data.inputs.forward !== undefined) setForward(data.inputs.forward);
+                    if (data.inputs.speed !== undefined) setSpeed(data.inputs.speed);
+                }
+            }, [data.inputs]);
+
+            // Update outputs whenever state changes
+            useEffect(() => {
+                if (onUpdateRef.current) {
+                    onUpdateRef.current(id, {
+                        onOff: onOff,
+                        speed: speed,
+                        forward: forward
+                    });
+                }
+            }, [onOff, speed, forward, id]);
 
             return (
                 <div>
@@ -443,7 +489,7 @@
                         type="target" 
                         position={Position.Left} 
                         id="in-on-off" 
-                        style={{ top: '30px' }}
+                        style={{ top: '35px' }}
                         data-type="boolean"
                         data-label="On/Off"
                     />
@@ -451,20 +497,20 @@
                         type="target" 
                         position={Position.Left} 
                         id="in-forward" 
-                        style={{ top: '60px' }}
+                        style={{ top: '65px' }}
                         data-type="boolean"
-                        data-label="Forward"
+                        data-label="Direction"
                     />
                     <Handle 
                         type="target" 
                         position={Position.Left} 
                         id="in-speed" 
-                        style={{ top: '90px' }}
+                        style={{ top: '95px' }}
                         data-type="number"
                         data-label="Speed"
                     />
 
-                    <div className="node-header">Motor Controller</div>
+                    <div className="node-header">{data.label || 'Motor - Port A'}</div>
                     
                     <div className="node-controls">
                         <div className="control-group">
@@ -473,6 +519,7 @@
                                     type="checkbox" 
                                     checked={onOff} 
                                     onChange={(e) => setOnOff(e.target.checked)}
+                                    disabled={isOnOffConnected}
                                 />
                                 {' '}On/Off
                             </label>
@@ -484,6 +531,7 @@
                                     type="checkbox" 
                                     checked={forward} 
                                     onChange={(e) => setForward(e.target.checked)}
+                                    disabled={isForwardConnected}
                                 />
                                 {' '}Forward
                             </label>
@@ -498,47 +546,194 @@
                                 value={speed}
                                 onChange={(e) => setSpeed(parseInt(e.target.value))}
                                 className="control-input"
+                                disabled={isSpeedConnected}
                             />
                         </div>
                     </div>
 
                     <div className="node-ports">
                         <div className="port-group">
-                            <div className="port-group-title">Outputs:</div>
+                            <div className="port-group-title">Status:</div>
                             <div className="port-item">
-                                <span className={`status-indicator ${actualOnOff ? 'status-on' : 'status-off'}`}></span>
-                                Status: {actualOnOff ? 'ON' : 'OFF'}
+                                <span className={`status-indicator ${onOff ? 'status-on' : 'status-off'}`}></span>
+                                {onOff ? 'ON' : 'OFF'}
                             </div>
-                            <div className="port-item">Speed: {actualSpeed}</div>
-                            <div className="port-item">Direction: {actualForward ? 'Forward' : 'Reverse'}</div>
+                            <div className="port-item">Speed: {speed}</div>
+                            <div className="port-item">{forward ? 'Forward' : 'Reverse'}</div>
                         </div>
                     </div>
 
-                    {/* Output Handles */}
+                    {/* Output Handles - mirrored */}
                     <Handle 
                         type="source" 
                         position={Position.Right} 
-                        id="out-status" 
-                        style={{ top: '30px' }}
+                        id="out-on-off" 
+                        style={{ top: '35px' }}
                         data-type="boolean"
-                        data-label="Status"
+                        data-label="On/Off"
+                    />
+                    <Handle 
+                        type="source" 
+                        position={Position.Right} 
+                        id="out-forward" 
+                        style={{ top: '65px' }}
+                        data-type="boolean"
+                        data-label="Direction"
                     />
                     <Handle 
                         type="source" 
                         position={Position.Right} 
                         id="out-speed" 
-                        style={{ top: '60px' }}
+                        style={{ top: '95px' }}
                         data-type="number"
                         data-label="Speed"
                     />
+                </div>
+            );
+        }
+
+        // Dial/Slider Node
+        function DialNode({ data, id }) {
+            const [value, setValue] = useState(50);
+            const onUpdateRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            useEffect(() => {
+                if (onUpdateRef.current) {
+                    onUpdateRef.current(id, { value: value });
+                }
+            }, [value, id]);
+
+            return (
+                <div>
+                    <div className="node-header">Dial</div>
+                    
+                    <div className="node-controls">
+                        <div className="control-group">
+                            <label className="control-label">Value: {value}</label>
+                            <input 
+                                type="range" 
+                                min="0" 
+                                max="100" 
+                                value={value}
+                                onChange={(e) => setValue(parseInt(e.target.value))}
+                                className="control-input"
+                            />
+                        </div>
+                    </div>
+
                     <Handle 
                         type="source" 
                         position={Position.Right} 
-                        id="out-direction" 
-                        style={{ top: '90px' }}
-                        data-type="boolean"
-                        data-label="Direction"
+                        id="out-value" 
+                        style={{ top: '50%' }}
+                        data-type="number"
+                        data-label="Value"
                     />
+                </div>
+            );
+        }
+
+        // Switch Node
+        function SwitchNode({ data, id }) {
+            const [value, setValue] = useState(false);
+            const onUpdateRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            useEffect(() => {
+                if (onUpdateRef.current) {
+                    onUpdateRef.current(id, { value: value });
+                }
+            }, [value, id]);
+
+            return (
+                <div>
+                    <div className="node-header">Switch</div>
+                    
+                    <div className="node-controls">
+                        <div className="control-group">
+                            <label className="control-label">
+                                <input 
+                                    type="checkbox" 
+                                    checked={value} 
+                                    onChange={(e) => setValue(e.target.checked)}
+                                />
+                                {' '}{value ? 'ON' : 'OFF'}
+                            </label>
+                        </div>
+                    </div>
+
+                    <Handle 
+                        type="source" 
+                        position={Position.Right} 
+                        id="out-value" 
+                        style={{ top: '50%' }}
+                        data-type="boolean"
+                        data-label="Value"
+                    />
+                </div>
+            );
+        }
+
+        // Number Display Node
+        function NumberDisplayNode({ data, id }) {
+            const [value, setValue] = useState(0);
+
+            useEffect(() => {
+                if (data.inputs && data.inputs.value !== undefined) {
+                    setValue(data.inputs.value);
+                }
+            }, [data.inputs]);
+
+            return (
+                <div>
+                    <Handle 
+                        type="target" 
+                        position={Position.Left} 
+                        id="in-value" 
+                        style={{ top: '50%' }}
+                        data-type="number"
+                        data-label="Value"
+                    />
+
+                    <div className="node-header">Number Display</div>
+                    <div className="display-value">{value}</div>
+                </div>
+            );
+        }
+
+        // Boolean Display Node
+        function BoolDisplayNode({ data, id }) {
+            const [value, setValue] = useState(false);
+
+            useEffect(() => {
+                if (data.inputs && data.inputs.value !== undefined) {
+                    setValue(data.inputs.value);
+                }
+            }, [data.inputs]);
+
+            return (
+                <div>
+                    <Handle 
+                        type="target" 
+                        position={Position.Left} 
+                        id="in-value" 
+                        style={{ top: '50%' }}
+                        data-type="boolean"
+                        data-label="Value"
+                    />
+
+                    <div className="node-header">Bool Display</div>
+                    <div className={`display-bool ${value ? 'display-bool-on' : 'display-bool-off'}`}></div>
+                    <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '14px' }}>
+                        {value ? 'ON' : 'OFF'}
+                    </div>
                 </div>
             );
         }
@@ -552,15 +747,39 @@
                     'in-speed': 'number'
                 },
                 outputs: {
-                    'out-status': 'boolean',
-                    'out-speed': 'number',
-                    'out-direction': 'boolean'
+                    'out-on-off': 'boolean',
+                    'out-forward': 'boolean',
+                    'out-speed': 'number'
+                }
+            },
+            dialNode: {
+                outputs: {
+                    'out-value': 'number'
+                }
+            },
+            switchNode: {
+                outputs: {
+                    'out-value': 'boolean'
+                }
+            },
+            numberDisplayNode: {
+                inputs: {
+                    'in-value': 'number'
+                }
+            },
+            boolDisplayNode: {
+                inputs: {
+                    'in-value': 'boolean'
                 }
             }
         };
 
         const nodeTypes = {
             motorNode: MotorNode,
+            dialNode: DialNode,
+            switchNode: SwitchNode,
+            numberDisplayNode: NumberDisplayNode,
+            boolDisplayNode: BoolDisplayNode
         };
 
         // Main App Component
@@ -570,10 +789,83 @@
             const [edges, setEdges, onEdgesChange] = useEdgesState([]);
             const [reactFlowInstance, setReactFlowInstance] = useState(null);
             const [selectedEdge, setSelectedEdge] = useState(null);
+            const nodeOutputsRef = useRef({});
+            const edgesRef = useRef([]);
+            
+            // Keep edges ref in sync
+            useEffect(() => {
+                edgesRef.current = edges;
+            }, [edges]);
+
+            // Update connected inputs info whenever edges change
+            useEffect(() => {
+                setNodes(nds => nds.map(node => {
+                    const connectedInputs = edges
+                        .filter(edge => edge.target === node.id)
+                        .map(edge => edge.targetHandle);
+                    
+                    return {
+                        ...node,
+                        data: {
+                            ...node.data,
+                            connectedInputs
+                        }
+                    };
+                }));
+            }, [edges, setNodes]);
+
+            // Helper to convert handle ID to input key (kebab-case to camelCase)
+            const handleToInputKey = (handleId) => {
+                const key = handleId.replace('in-', '');
+                // Convert kebab-case to camelCase: "on-off" -> "onOff"
+                return key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+            };
+
+            // Handle node output updates - stable reference
+            const handleNodeUpdate = useCallback((nodeId, outputs) => {
+                // Store outputs for this node
+                nodeOutputsRef.current[nodeId] = outputs;
+                
+                // Propagate immediately using current edges
+                const currentEdges = edgesRef.current;
+                
+                currentEdges.forEach(edge => {
+                    if (edge.source !== nodeId) return;
+
+                    const sourceHandle = edge.sourceHandle;
+                    let outputValue;
+                    
+                    // Determine output value based on source handle
+                    if (sourceHandle === 'out-on-off' || sourceHandle === 'out-value') {
+                        outputValue = outputs.onOff !== undefined ? outputs.onOff : outputs.value;
+                    } else if (sourceHandle === 'out-forward') {
+                        outputValue = outputs.forward;
+                    } else if (sourceHandle === 'out-speed') {
+                        outputValue = outputs.speed;
+                    }
+                    
+                    // Update target node
+                    setNodes(nds => nds.map(node => {
+                        if (node.id === edge.target) {
+                            const inputKey = handleToInputKey(edge.targetHandle);
+                            return {
+                                ...node,
+                                data: {
+                                    ...node.data,
+                                    inputs: {
+                                        ...node.data.inputs,
+                                        [inputKey]: outputValue
+                                    }
+                                }
+                            };
+                        }
+                        return node;
+                    }));
+                });
+            }, [setNodes]);
 
             // Validate connections based on port types
             const isValidConnection = useCallback((connection) => {
-                // Find the source and target nodes
                 const sourceNode = nodes.find(n => n.id === connection.source);
                 const targetNode = nodes.find(n => n.id === connection.target);
 
@@ -581,7 +873,6 @@
                     return true;
                 }
 
-                // Get port type information
                 const sourcePortDef = portTypes[sourceNode.type];
                 const targetPortDef = portTypes[targetNode.type];
 
@@ -592,7 +883,6 @@
                 const sourceType = sourcePortDef.outputs?.[connection.sourceHandle];
                 const targetType = targetPortDef.inputs?.[connection.targetHandle];
 
-                // Only allow connections between same types
                 if (sourceType && targetType && sourceType !== targetType) {
                     console.warn(`❌ Cannot connect ${sourceType} to ${targetType}`);
                     return false;
@@ -602,8 +892,43 @@
             }, [nodes]);
 
             const onConnect = useCallback(
-                (params) => setEdges((eds) => addEdge(params, eds)),
-                [setEdges]
+                (params) => {
+                    setEdges((eds) => addEdge(params, eds));
+                    // Propagate value from source to target after connection is made
+                    setTimeout(() => {
+                        const sourceOutputs = nodeOutputsRef.current[params.source];
+                        if (sourceOutputs) {
+                            const sourceHandle = params.sourceHandle;
+                            let outputValue;
+                            
+                            if (sourceHandle === 'out-on-off' || sourceHandle === 'out-value') {
+                                outputValue = sourceOutputs.onOff !== undefined ? sourceOutputs.onOff : sourceOutputs.value;
+                            } else if (sourceHandle === 'out-forward') {
+                                outputValue = sourceOutputs.forward;
+                            } else if (sourceHandle === 'out-speed') {
+                                outputValue = sourceOutputs.speed;
+                            }
+                            
+                            setNodes(nds => nds.map(node => {
+                                if (node.id === params.target) {
+                                    const inputKey = handleToInputKey(params.targetHandle);
+                                    return {
+                                        ...node,
+                                        data: {
+                                            ...node.data,
+                                            inputs: {
+                                                ...node.data.inputs,
+                                                [inputKey]: outputValue
+                                            }
+                                        }
+                                    };
+                                }
+                                return node;
+                            }));
+                        }
+                    }, 10);
+                },
+                [setEdges, setNodes]
             );
 
             // Handle edge selection
@@ -620,10 +945,30 @@
             // Delete selected edge
             const deleteSelectedEdge = useCallback(() => {
                 if (selectedEdge) {
+                    const edgeToDelete = edges.find(e => e.id === selectedEdge);
                     setEdges((eds) => eds.filter((e) => e.id !== selectedEdge));
                     setSelectedEdge(null);
+                    
+                    // Clear the input value on the target node
+                    if (edgeToDelete) {
+                        setNodes(nds => nds.map(node => {
+                            if (node.id === edgeToDelete.target) {
+                                const inputKey = handleToInputKey(edgeToDelete.targetHandle);
+                                const newInputs = { ...node.data.inputs };
+                                delete newInputs[inputKey];
+                                return {
+                                    ...node,
+                                    data: {
+                                        ...node.data,
+                                        inputs: newInputs
+                                    }
+                                };
+                            }
+                            return node;
+                        }));
+                    }
                 }
-            }, [selectedEdge, setEdges]);
+            }, [selectedEdge, edges, setEdges, setNodes]);
 
             const onDragOver = useCallback((event) => {
                 event.preventDefault();
@@ -648,12 +993,17 @@
                         id: `${type}-${Date.now()}`,
                         type,
                         position,
-                        data: { label: `${type} node` },
+                        data: { 
+                            label: type === 'motorNode' ? 'Motor - Port A' : undefined,
+                            onUpdate: handleNodeUpdate,
+                            inputs: {},
+                            connectedInputs: []
+                        },
                     };
 
                     setNodes((nds) => nds.concat(newNode));
                 },
-                [reactFlowInstance, setNodes]
+                [reactFlowInstance, setNodes, handleNodeUpdate]
             );
 
             const onDragStart = (event, nodeType) => {
@@ -686,7 +1036,15 @@
                     const response = await fetch('/api/flows/load');
                     const flow = await response.json();
                     if (flow.nodes && flow.edges) {
-                        setNodes(flow.nodes || []);
+                        // Restore onUpdate callback to loaded nodes
+                        const nodesWithCallbacks = flow.nodes.map(node => ({
+                            ...node,
+                            data: {
+                                ...node.data,
+                                onUpdate: handleNodeUpdate
+                            }
+                        }));
+                        setNodes(nodesWithCallbacks || []);
                         setEdges(flow.edges || []);
                     }
                 } catch (error) {
@@ -714,15 +1072,64 @@
                     <div className="main-container">
                         <div className="sidebar">
                             <h2>Node Palette</h2>
+                            
+                            <h3>Connected Devices</h3>
                             <div className="node-palette">
                                 <div
                                     className="palette-node"
                                     draggable
                                     onDragStart={(e) => onDragStart(e, 'motorNode')}
                                 >
-                                    <div className="palette-node-title">⚙️ Motor</div>
+                                    <div className="palette-node-title">⚙️ Motor - Port A</div>
                                     <div className="palette-node-desc">
                                         Control NXT motor with speed and direction
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h3>Virtual I/O</h3>
+                            <div className="node-palette">
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'dialNode')}
+                                >
+                                    <div className="palette-node-title">🎚️ Dial</div>
+                                    <div className="palette-node-desc">
+                                        Number input slider (0-100)
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'switchNode')}
+                                >
+                                    <div className="palette-node-title">🔘 Switch</div>
+                                    <div className="palette-node-desc">
+                                        Boolean on/off switch
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'numberDisplayNode')}
+                                >
+                                    <div className="palette-node-title">📊 Number Display</div>
+                                    <div className="palette-node-desc">
+                                        Shows numeric value (0-100)
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'boolDisplayNode')}
+                                >
+                                    <div className="palette-node-title">💡 Bool Display</div>
+                                    <div className="palette-node-desc">
+                                        Shows on/off state (red/green)
                                     </div>
                                 </div>
                             </div>
@@ -774,4 +1181,3 @@
     </script>
 </body>
 </html>
-
