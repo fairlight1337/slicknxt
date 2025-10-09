@@ -2659,6 +2659,87 @@
                 }
             };
 
+            const exportFlow = () => {
+                if (nodes.length === 0 && edges.length === 0) {
+                    showNotification('Nothing to export - flow is empty', 'warning');
+                    return;
+                }
+
+                const flow = {
+                    nodes: nodes,
+                    edges: edges,
+                    metadata: {
+                        exported: new Date().toISOString(),
+                        version: "1.0"
+                    }
+                };
+
+                const dataStr = JSON.stringify(flow, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `slicknxt-flow-${Date.now()}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                showNotification('Flow exported successfully', 'success');
+            };
+
+            const importFlow = () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json,application/json';
+                
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const flow = JSON.parse(event.target.result);
+                            
+                            if (!flow.nodes || !flow.edges) {
+                                showNotification('Invalid flow file format', 'error');
+                                return;
+                            }
+
+                            // Restore onUpdate callback to loaded nodes
+                            const nodesWithCallbacks = flow.nodes.map(node => ({
+                                ...node,
+                                data: {
+                                    ...node.data,
+                                    onUpdate: handleNodeUpdate
+                                }
+                            }));
+                            setNodes(nodesWithCallbacks || []);
+                            setEdges(flow.edges || []);
+                            
+                            // Rebuild used devices set
+                            const devices = new Set();
+                            flow.nodes.forEach(node => {
+                                if (node.data.deviceId) {
+                                    devices.add(node.data.deviceId);
+                                }
+                            });
+                            setUsedDevices(devices);
+                            
+                            showNotification('Flow imported successfully', 'success');
+                        } catch (error) {
+                            console.error('Error importing flow:', error);
+                            showNotification('Error parsing flow file', 'error');
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+                
+                input.click();
+            };
+
             return (
                 <>
                     <div className="header">
@@ -2672,8 +2753,10 @@
                             >
                                 🗑️ {selectedNode ? 'Delete Block' : 'Delete Connection'}
                             </button>
-                            <button className="btn btn-secondary" onClick={openLoadModal}>Load Flow</button>
-                            <button className="btn btn-primary" onClick={openSaveModal}>Save Flow</button>
+                            <button className="btn btn-secondary" onClick={openLoadModal}>📂 Load Flow</button>
+                            <button className="btn btn-primary" onClick={openSaveModal}>💾 Save Flow</button>
+                            <button className="btn btn-secondary" onClick={importFlow} title="Import flow from JSON file">📥 Import</button>
+                            <button className="btn btn-secondary" onClick={exportFlow} title="Export flow as JSON file">📤 Export</button>
                         </div>
                     </div>
                     <div className="main-container">
