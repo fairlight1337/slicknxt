@@ -296,6 +296,31 @@
             text-align: left;
         }
 
+        /* Port value display */
+        .port-value {
+            position: absolute;
+            font-size: 9px;
+            color: #00d4ff;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 100;
+            font-weight: 600;
+            top: 50%;
+            transform: translateY(10px);
+        }
+
+        .port-value-left {
+            left: -75px;
+            text-align: right;
+            width: 60px;
+        }
+
+        .port-value-right {
+            right: -75px;
+            text-align: left;
+            width: 60px;
+        }
+
         /* Type-specific handle colors */
         .react-flow__handle[data-type="boolean"] {
             background: #ff6b9d;
@@ -700,6 +725,9 @@
                         data-type="boolean"
                         data-label="On/Off"
                     />
+                    <div className="port-value port-value-left" style={{ top: '35px' }}>
+                        {onOff ? 'ON' : 'OFF'}
+                    </div>
                     <Handle 
                         type="target" 
                         position={Position.Left} 
@@ -708,6 +736,9 @@
                         data-type="boolean"
                         data-label="Direction"
                     />
+                    <div className="port-value port-value-left" style={{ top: '65px' }}>
+                        {forward ? 'FWD' : 'REV'}
+                    </div>
                     <Handle 
                         type="target" 
                         position={Position.Left} 
@@ -716,6 +747,9 @@
                         data-type="number"
                         data-label="Speed"
                     />
+                    <div className="port-value port-value-left" style={{ top: '95px' }}>
+                        {speed}
+                    </div>
 
                     <div className="node-header">{data.label || 'Motor - Port A'}</div>
                     
@@ -779,6 +813,9 @@
                         data-type="boolean"
                         data-label="On/Off"
                     />
+                    <div className="port-value port-value-right" style={{ top: '35px' }}>
+                        {onOff ? 'ON' : 'OFF'}
+                    </div>
                     <Handle 
                         type="source" 
                         position={Position.Right} 
@@ -787,6 +824,9 @@
                         data-type="boolean"
                         data-label="Direction"
                     />
+                    <div className="port-value port-value-right" style={{ top: '65px' }}>
+                        {forward ? 'FWD' : 'REV'}
+                    </div>
                     <Handle 
                         type="source" 
                         position={Position.Right} 
@@ -795,6 +835,9 @@
                         data-type="number"
                         data-label="Speed"
                     />
+                    <div className="port-value port-value-right" style={{ top: '95px' }}>
+                        {speed}
+                    </div>
                 </div>
             );
         }
@@ -840,6 +883,9 @@
                         data-type="number"
                         data-label="Value"
                     />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {value}
+                    </div>
                 </div>
             );
         }
@@ -891,6 +937,9 @@
                         data-type="boolean"
                         data-label="Value"
                     />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {value ? 'ON' : 'OFF'}
+                    </div>
                 </div>
             );
         }
@@ -915,6 +964,9 @@
                         data-type="number"
                         data-label="Value"
                     />
+                    <div className="port-value port-value-left" style={{ top: '50%' }}>
+                        {value}
+                    </div>
 
                     <div className="node-header">Number Display</div>
                     <div className="display-value">{value}</div>
@@ -942,6 +994,9 @@
                         data-type="boolean"
                         data-label="Value"
                     />
+                    <div className="port-value port-value-left" style={{ top: '50%' }}>
+                        {value ? 'ON' : 'OFF'}
+                    </div>
 
                     <div className="node-header">Bool Display</div>
                     <div className={`display-bool ${value ? 'display-bool-on' : 'display-bool-off'}`}></div>
@@ -981,7 +1036,13 @@
             return (
                 <div>
                     <Handle type="target" position={Position.Left} id="in-a" style={{ top: '30%' }} data-type="boolean" data-label="A" />
+                    <div className="port-value port-value-left" style={{ top: '30%' }}>
+                        {inputA ? '1' : '0'}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-b" style={{ top: '70%' }} data-type="boolean" data-label="B" />
+                    <div className="port-value port-value-left" style={{ top: '70%' }}>
+                        {inputB ? '1' : '0'}
+                    </div>
                     
                     <div className="node-header">AND Gate</div>
                     <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
@@ -991,6 +1052,9 @@
                     </div>
 
                     <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="boolean" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {output ? '1' : '0'}
+                    </div>
                 </div>
             );
         }
@@ -1024,7 +1088,13 @@
             return (
                 <div>
                     <Handle type="target" position={Position.Left} id="in-a" style={{ top: '30%' }} data-type="boolean" data-label="A" />
+                    <div className="port-value port-value-left" style={{ top: '30%' }}>
+                        {inputA ? '1' : '0'}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-b" style={{ top: '70%' }} data-type="boolean" data-label="B" />
+                    <div className="port-value port-value-left" style={{ top: '70%' }}>
+                        {inputB ? '1' : '0'}
+                    </div>
                     
                     <div className="node-header">OR Gate</div>
                     <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
@@ -1034,6 +1104,9 @@
                     </div>
 
                     <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="boolean" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {output ? '1' : '0'}
+                    </div>
                 </div>
             );
         }
@@ -1067,7 +1140,13 @@
             return (
                 <div>
                     <Handle type="target" position={Position.Left} id="in-a" style={{ top: '30%' }} data-type="boolean" data-label="A" />
+                    <div className="port-value port-value-left" style={{ top: '30%' }}>
+                        {inputA ? '1' : '0'}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-b" style={{ top: '70%' }} data-type="boolean" data-label="B" />
+                    <div className="port-value port-value-left" style={{ top: '70%' }}>
+                        {inputB ? '1' : '0'}
+                    </div>
                     
                     <div className="node-header">XOR Gate</div>
                     <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
@@ -1077,6 +1156,9 @@
                     </div>
 
                     <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="boolean" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {output ? '1' : '0'}
+                    </div>
                 </div>
             );
         }
@@ -1108,6 +1190,9 @@
             return (
                 <div>
                     <Handle type="target" position={Position.Left} id="in-input" style={{ top: '50%' }} data-type="boolean" data-label="In" />
+                    <div className="port-value port-value-left" style={{ top: '50%' }}>
+                        {input ? '1' : '0'}
+                    </div>
                     
                     <div className="node-header">NOT Gate</div>
                     <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
@@ -1116,6 +1201,9 @@
                     </div>
 
                     <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="boolean" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {output ? '1' : '0'}
+                    </div>
                 </div>
             );
         }
@@ -1212,8 +1300,17 @@
             return (
                 <div>
                     <Handle type="target" position={Position.Left} id="in-enable" style={{ top: '20%' }} data-type="boolean" data-label="Enable" />
+                    <div className="port-value port-value-left" style={{ top: '20%' }}>
+                        {enable ? 'ON' : 'OFF'}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-on-duration" style={{ top: '50%' }} data-type="number" data-label="On Sec" />
+                    <div className="port-value port-value-left" style={{ top: '50%' }}>
+                        {onDuration}s
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-off-duration" style={{ top: '80%' }} data-type="number" data-label="Off Sec" />
+                    <div className="port-value port-value-left" style={{ top: '80%' }}>
+                        {offDuration}s
+                    </div>
                     
                     <div className="node-header">Pulse Timer</div>
                     <div style={{ padding: '10px' }}>
@@ -1290,6 +1387,9 @@
                     </div>
 
                     <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="boolean" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {output ? 'ON' : 'OFF'}
+                    </div>
                 </div>
             );
         }
@@ -1343,7 +1443,13 @@
             return (
                 <div>
                     <Handle type="target" position={Position.Left} id="in-input" style={{ top: '30%' }} data-type="any" data-label="In" />
+                    <div className="port-value port-value-left" style={{ top: '30%' }}>
+                        {inputValue !== null ? String(inputValue) : '-'}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-delay" style={{ top: '70%' }} data-type="number" data-label="Delay" />
+                    <div className="port-value port-value-left" style={{ top: '70%' }}>
+                        {delay}s
+                    </div>
                     
                     <div className="node-header">Delay Timer</div>
                     <div style={{ padding: '10px' }}>
@@ -1367,6 +1473,9 @@
                     </div>
 
                     <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="any" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {outputValue !== null ? String(outputValue) : '-'}
+                    </div>
                 </div>
             );
         }
@@ -1408,7 +1517,13 @@
             return (
                 <div>
                     <Handle type="target" position={Position.Left} id="in-a" style={{ top: '30%' }} data-type="number" data-label="A" />
+                    <div className="port-value port-value-left" style={{ top: '30%' }}>
+                        {inputA}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-b" style={{ top: '70%' }} data-type="number" data-label="B" />
+                    <div className="port-value port-value-left" style={{ top: '70%' }}>
+                        {inputB}
+                    </div>
                     
                     <div className="node-header">Comparator</div>
                     <div style={{ padding: '10px' }}>
@@ -1477,6 +1592,9 @@
                     </div>
 
                     <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="boolean" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {output ? 'TRUE' : 'FALSE'}
+                    </div>
                 </div>
             );
         }
@@ -1510,7 +1628,13 @@
             return (
                 <div>
                     <Handle type="target" position={Position.Left} id="in-signal" style={{ top: '30%' }} data-type="any" data-label="Signal" />
+                    <div className="port-value port-value-left" style={{ top: '30%' }}>
+                        {signal !== null ? String(signal) : '-'}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-enable" style={{ top: '70%' }} data-type="boolean" data-label="Enable" />
+                    <div className="port-value port-value-left" style={{ top: '70%' }}>
+                        {enable ? 'ON' : 'OFF'}
+                    </div>
                     
                     <div className="node-header">Bool Gate</div>
                     <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
@@ -1522,6 +1646,9 @@
                     </div>
 
                     <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="any" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {output !== null ? String(output) : 'BLOCKED'}
+                    </div>
                 </div>
             );
         }
@@ -1560,8 +1687,17 @@
             return (
                 <div>
                     <Handle type="target" position={Position.Left} id="in-input" style={{ top: '25%' }} data-type="number" data-label="Input" />
+                    <div className="port-value port-value-left" style={{ top: '25%' }}>
+                        {input}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-min" style={{ top: '55%' }} data-type="number" data-label="Min" />
+                    <div className="port-value port-value-left" style={{ top: '55%' }}>
+                        {min}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-max" style={{ top: '85%' }} data-type="number" data-label="Max" />
+                    <div className="port-value port-value-left" style={{ top: '85%' }}>
+                        {max}
+                    </div>
                     
                     <div className="node-header">Cap/Clamp</div>
                     <div style={{ padding: '10px' }}>
@@ -1596,6 +1732,9 @@
                     </div>
 
                     <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="number" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {output}
+                    </div>
                 </div>
             );
         }
@@ -1629,7 +1768,13 @@
             return (
                 <div>
                     <Handle type="target" position={Position.Left} id="in-a" style={{ top: '30%' }} data-type="number" data-label="A" />
+                    <div className="port-value port-value-left" style={{ top: '30%' }}>
+                        {inputA}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-b" style={{ top: '70%' }} data-type="number" data-label="B" />
+                    <div className="port-value port-value-left" style={{ top: '70%' }}>
+                        {inputB}
+                    </div>
                     
                     <div className="node-header">Add (+)</div>
                     <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
@@ -1638,6 +1783,9 @@
                     </div>
 
                     <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="number" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {output}
+                    </div>
                 </div>
             );
         }
@@ -1671,7 +1819,13 @@
             return (
                 <div>
                     <Handle type="target" position={Position.Left} id="in-a" style={{ top: '30%' }} data-type="number" data-label="A" />
+                    <div className="port-value port-value-left" style={{ top: '30%' }}>
+                        {inputA}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-b" style={{ top: '70%' }} data-type="number" data-label="B" />
+                    <div className="port-value port-value-left" style={{ top: '70%' }}>
+                        {inputB}
+                    </div>
                     
                     <div className="node-header">Subtract (-)</div>
                     <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
@@ -1680,6 +1834,9 @@
                     </div>
 
                     <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="number" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {output}
+                    </div>
                 </div>
             );
         }
@@ -1797,6 +1954,9 @@
                         data-type="any"
                         data-label="Value"
                     />
+                    <div className="port-value port-value-left" style={{ top: '50%' }}>
+                        {currentValue !== null ? String(currentValue) : '-'}
+                    </div>
 
                     <div className="node-header">History Display</div>
                     <canvas 
@@ -1884,8 +2044,17 @@
             return (
                 <div>
                     <Handle type="target" position={Position.Left} id="in-input" style={{ top: '25%' }} data-type="number" data-label="Input" />
+                    <div className="port-value port-value-left" style={{ top: '25%' }}>
+                        {inputValue}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-enabled" style={{ top: '55%' }} data-type="boolean" data-label="Enable" />
+                    <div className="port-value port-value-left" style={{ top: '55%' }}>
+                        {enabled ? 'ON' : 'OFF'}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-reset" style={{ top: '85%' }} data-type="boolean" data-label="Reset" />
+                    <div className="port-value port-value-left" style={{ top: '85%' }}>
+                        {resetTrigger ? 'RESET' : '-'}
+                    </div>
                     
                     <div className="node-header">Integrator</div>
                     <div style={{ padding: '10px' }}>
@@ -1938,6 +2107,9 @@
                     </div>
 
                     <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="number" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {Math.round(accumulator)}
+                    </div>
                 </div>
             );
         }
@@ -1992,9 +2164,21 @@
             return (
                 <div>
                     <Handle type="target" position={Position.Left} id="in-enabled" style={{ top: '15%' }} data-type="boolean" data-label="Enable" />
+                    <div className="port-value port-value-left" style={{ top: '15%' }}>
+                        {enabled ? 'ON' : 'OFF'}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-p-gain" style={{ top: '35%' }} data-type="number" data-label="P Gain" />
+                    <div className="port-value port-value-left" style={{ top: '35%' }}>
+                        {pGain.toFixed(1)}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-setpoint" style={{ top: '60%' }} data-type="number" data-label="Setpoint" />
+                    <div className="port-value port-value-left" style={{ top: '60%' }}>
+                        {setpoint}
+                    </div>
                     <Handle type="target" position={Position.Left} id="in-current-value" style={{ top: '85%' }} data-type="number" data-label="Current" />
+                    <div className="port-value port-value-left" style={{ top: '85%' }}>
+                        {currentValue}
+                    </div>
                     
                     <div className="node-header">P Controller</div>
                     <div style={{ padding: '10px' }}>
@@ -2041,6 +2225,9 @@
                     </div>
 
                     <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="number" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {output}
+                    </div>
                 </div>
             );
         }
