@@ -457,6 +457,188 @@
         .react-flow__controls button:hover {
             background: #533483;
         }
+
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .modal {
+            background: #16213e;
+            border: 2px solid #0f3460;
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 20px;
+            font-weight: 600;
+            color: #00d4ff;
+            margin-bottom: 15px;
+        }
+
+        .modal-content {
+            margin-bottom: 20px;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 10px;
+            background: #0f3460;
+            border: 1px solid #533483;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .flow-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .flow-item {
+            background: #0f3460;
+            border: 1px solid #533483;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .flow-item:hover {
+            border-color: #00d4ff;
+            transform: translateX(5px);
+        }
+
+        .flow-item-name {
+            font-weight: 600;
+            color: #00d4ff;
+            margin-bottom: 5px;
+        }
+
+        .flow-item-meta {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .flow-item-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .flow-item-info {
+            flex: 1;
+        }
+
+        .flow-item-delete {
+            padding: 5px 10px;
+            background: #d62828;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            margin-left: 10px;
+        }
+
+        .flow-item-delete:hover {
+            background: #9d0208;
+        }
+
+        /* Notification toast */
+        .notification-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .notification {
+            background: #16213e;
+            border: 2px solid #0f3460;
+            border-radius: 8px;
+            padding: 15px 20px;
+            min-width: 300px;
+            max-width: 400px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease-out;
+            pointer-events: auto;
+        }
+
+        .notification.success {
+            border-color: #00ff88;
+        }
+
+        .notification.error {
+            border-color: #ff4444;
+        }
+
+        .notification.warning {
+            border-color: #ffaa00;
+        }
+
+        .notification-message {
+            color: white;
+            font-size: 14px;
+        }
+
+        .notification.fade-out {
+            animation: slideOut 0.3s ease-in forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+        }
     </style>
 </head>
 <body>
@@ -2057,13 +2239,39 @@
             const [selectedEdge, setSelectedEdge] = useState(null);
             const [selectedNode, setSelectedNode] = useState(null);
             const [usedDevices, setUsedDevices] = useState(new Set());
+            const [showSaveModal, setShowSaveModal] = useState(false);
+            const [showLoadModal, setShowLoadModal] = useState(false);
+            const [flowName, setFlowName] = useState('');
+            const [availableFlows, setAvailableFlows] = useState([]);
+            const [notifications, setNotifications] = useState([]);
             const nodeOutputsRef = useRef({});
             const edgesRef = useRef([]);
+            const notificationIdRef = useRef(0);
             
             // Keep edges ref in sync
             useEffect(() => {
                 edgesRef.current = edges;
             }, [edges]);
+
+            // Notification system
+            const showNotification = useCallback((message, type = 'success') => {
+                const id = notificationIdRef.current++;
+                const notification = { id, message, type };
+                
+                setNotifications(prev => [...prev, notification]);
+                
+                // Auto-dismiss after 3 seconds
+                setTimeout(() => {
+                    setNotifications(prev => 
+                        prev.map(n => n.id === id ? { ...n, fadeOut: true } : n)
+                    );
+                    
+                    // Remove after fade animation completes
+                    setTimeout(() => {
+                        setNotifications(prev => prev.filter(n => n.id !== id));
+                    }, 300);
+                }, 3000);
+            }, []);
 
             // Update connected inputs info whenever edges change
             useEffect(() => {
@@ -2334,7 +2542,29 @@
                 event.dataTransfer.effectAllowed = 'move';
             };
 
-            const saveFlow = async () => {
+            const openSaveModal = () => {
+                setFlowName('');
+                setShowSaveModal(true);
+            };
+
+            const openLoadModal = async () => {
+                try {
+                    const response = await fetch('/api/flows/list');
+                    const data = await response.json();
+                    setAvailableFlows(data.flows);
+                    setShowLoadModal(true);
+                } catch (error) {
+                    console.error('Error fetching flows:', error);
+                    showNotification('Error loading flow list', 'error');
+                }
+            };
+
+            const saveFlowToFile = async (overwrite = false) => {
+                if (!flowName.trim()) {
+                    showNotification('Please enter a flow name', 'warning');
+                    return;
+                }
+
                 const flow = {
                     nodes: nodes,
                     edges: edges
@@ -2344,20 +2574,35 @@
                     const response = await fetch('/api/flows/save', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(flow)
+                        body: JSON.stringify({
+                            name: flowName,
+                            flow: flow,
+                            overwrite: overwrite
+                        })
                     });
+
+                    if (response.status === 409) {
+                        // File exists, ask for confirmation
+                        if (window.confirm(`Flow "${flowName}" already exists. Overwrite?`)) {
+                            await saveFlowToFile(true);
+                        }
+                        return;
+                    }
+
                     const result = await response.json();
-                    alert(result.message);
+                    showNotification(result.message, 'success');
+                    setShowSaveModal(false);
                 } catch (error) {
                     console.error('Error saving flow:', error);
-                    alert('Error saving flow');
+                    showNotification('Error saving flow', 'error');
                 }
             };
 
-            const loadFlow = async () => {
+            const loadFlowFromFile = async (filename) => {
                 try {
-                    const response = await fetch('/api/flows/load');
+                    const response = await fetch(`/api/flows/load/${filename}`);
                     const flow = await response.json();
+                    
                     if (flow.nodes && flow.edges) {
                         // Restore onUpdate callback to loaded nodes
                         const nodesWithCallbacks = flow.nodes.map(node => ({
@@ -2378,9 +2623,39 @@
                             }
                         });
                         setUsedDevices(devices);
+                        setShowLoadModal(false);
+                        showNotification('Flow loaded successfully', 'success');
                     }
                 } catch (error) {
                     console.error('Error loading flow:', error);
+                    showNotification('Error loading flow', 'error');
+                }
+            };
+
+            const deleteFlowFile = async (filename, flowName, event) => {
+                event.stopPropagation(); // Prevent triggering load when clicking delete
+                
+                if (!window.confirm(`Are you sure you want to delete "${flowName}"? This cannot be undone.`)) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/flows/delete/${filename}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        // Refresh the flow list
+                        const listResponse = await fetch('/api/flows/list');
+                        const data = await listResponse.json();
+                        setAvailableFlows(data.flows);
+                        showNotification(`Flow "${flowName}" deleted successfully`, 'success');
+                    } else {
+                        showNotification('Error deleting flow', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error deleting flow:', error);
+                    showNotification('Error deleting flow', 'error');
                 }
             };
 
@@ -2397,8 +2672,8 @@
                             >
                                 🗑️ {selectedNode ? 'Delete Block' : 'Delete Connection'}
                             </button>
-                            <button className="btn btn-secondary" onClick={loadFlow}>Load Flow</button>
-                            <button className="btn btn-primary" onClick={saveFlow}>Save Flow</button>
+                            <button className="btn btn-secondary" onClick={openLoadModal}>Load Flow</button>
+                            <button className="btn btn-primary" onClick={openSaveModal}>Save Flow</button>
                         </div>
                     </div>
                     <div className="main-container">
@@ -2674,6 +2949,93 @@
                                 <Controls />
                             </ReactFlow>
                         </div>
+                    </div>
+
+                    {/* Save Modal */}
+                    {showSaveModal && (
+                        <div className="modal-overlay" onClick={() => setShowSaveModal(false)}>
+                            <div className="modal" onClick={(e) => e.stopPropagation()}>
+                                <div className="modal-header">Save Flow</div>
+                                <div className="modal-content">
+                                    <input
+                                        type="text"
+                                        className="modal-input"
+                                        placeholder="Enter flow name..."
+                                        value={flowName}
+                                        onChange={(e) => setFlowName(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && saveFlowToFile()}
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="modal-buttons">
+                                    <button className="btn btn-secondary" onClick={() => setShowSaveModal(false)}>
+                                        Cancel
+                                    </button>
+                                    <button className="btn btn-primary" onClick={() => saveFlowToFile()}>
+                                        Save
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Load Modal */}
+                    {showLoadModal && (
+                        <div className="modal-overlay" onClick={() => setShowLoadModal(false)}>
+                            <div className="modal" onClick={(e) => e.stopPropagation()}>
+                                <div className="modal-header">Load Flow</div>
+                                <div className="modal-content">
+                                    {availableFlows.length === 0 ? (
+                                        <div style={{ textAlign: 'center', color: '#aaa', padding: '20px' }}>
+                                            No saved flows found
+                                        </div>
+                                    ) : (
+                                        <div className="flow-list">
+                                            {availableFlows.map(flow => (
+                                                <div
+                                                    key={flow.filename}
+                                                    className="flow-item"
+                                                    onClick={() => loadFlowFromFile(flow.filename)}
+                                                >
+                                                    <div className="flow-item-content">
+                                                        <div className="flow-item-info">
+                                                            <div className="flow-item-name">{flow.name}</div>
+                                                            <div className="flow-item-meta">
+                                                                {new Date(flow.modified * 1000).toLocaleString()}
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            className="flow-item-delete"
+                                                            onClick={(e) => deleteFlowFile(flow.filename, flow.name, e)}
+                                                            title="Delete flow"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="modal-buttons">
+                                    <button className="btn btn-secondary" onClick={() => setShowLoadModal(false)}>
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Notification Container */}
+                    <div className="notification-container">
+                        {notifications.map(notification => (
+                            <div 
+                                key={notification.id} 
+                                className={`notification ${notification.type} ${notification.fadeOut ? 'fade-out' : ''}`}
+                            >
+                                <div className="notification-message">{notification.message}</div>
+                            </div>
+                        ))}
                     </div>
                 </>
             );
