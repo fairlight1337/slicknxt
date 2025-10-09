@@ -1185,6 +1185,161 @@
             );
         }
 
+        // Comparator Node
+        function ComparatorNode({ data, id }) {
+            const [inputA, setInputA] = useState(0);
+            const [inputB, setInputB] = useState(0);
+            const [mode, setMode] = useState('>'); // '>', '<', '=='
+            const [output, setOutput] = useState(false);
+            const onUpdateRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.a !== undefined) setInputA(data.inputs.a);
+                    if (data.inputs.b !== undefined) setInputB(data.inputs.b);
+                }
+            }, [data.inputs]);
+
+            useEffect(() => {
+                let result = false;
+                if (mode === '>') {
+                    result = inputA > inputB;
+                } else if (mode === '<') {
+                    result = inputA < inputB;
+                } else if (mode === '==') {
+                    result = inputA === inputB;
+                }
+                setOutput(result);
+                if (onUpdateRef.current) {
+                    onUpdateRef.current(id, { output: result });
+                }
+            }, [inputA, inputB, mode, id]);
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-a" style={{ top: '30%' }} data-type="number" data-label="A" />
+                    <Handle type="target" position={Position.Left} id="in-b" style={{ top: '70%' }} data-type="number" data-label="B" />
+                    
+                    <div className="node-header">Comparator</div>
+                    <div style={{ padding: '10px' }}>
+                        <div style={{ textAlign: 'center', fontSize: '12px', marginBottom: '10px' }}>
+                            <div>A: {inputA}</div>
+                            <div>B: {inputB}</div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '5px', marginBottom: '10px' }}>
+                            <button
+                                onClick={() => setMode('>')}
+                                style={{
+                                    flex: 1,
+                                    padding: '5px',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                    border: mode === '>' ? '2px solid #00d4ff' : 'none',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    background: mode === '>' ? '#533483' : '#0f3460',
+                                    color: '#00d4ff',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                &gt;
+                            </button>
+                            <button
+                                onClick={() => setMode('<')}
+                                style={{
+                                    flex: 1,
+                                    padding: '5px',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                    border: mode === '<' ? '2px solid #00d4ff' : 'none',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    background: mode === '<' ? '#533483' : '#0f3460',
+                                    color: '#00d4ff',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                &lt;
+                            </button>
+                            <button
+                                onClick={() => setMode('==')}
+                                style={{
+                                    flex: 1,
+                                    padding: '5px',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold',
+                                    border: mode === '==' ? '2px solid #00d4ff' : 'none',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    background: mode === '==' ? '#533483' : '#0f3460',
+                                    color: '#00d4ff',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                ==
+                            </button>
+                        </div>
+
+                        <div style={{ textAlign: 'center', fontSize: '12px', fontWeight: 'bold' }}>
+                            {inputA} {mode} {inputB} = {output ? 'TRUE' : 'FALSE'}
+                        </div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="boolean" data-label="Out" />
+                </div>
+            );
+        }
+
+        // Bool Gate Node (passes signal through if enabled)
+        function BoolGateNode({ data, id }) {
+            const [signal, setSignal] = useState(null);
+            const [enable, setEnable] = useState(false);
+            const [output, setOutput] = useState(null);
+            const onUpdateRef = useRef(null);
+
+            useEffect(() => {
+                onUpdateRef.current = data.onUpdate;
+            }, [data.onUpdate]);
+
+            useEffect(() => {
+                if (data.inputs) {
+                    if (data.inputs.signal !== undefined) setSignal(data.inputs.signal);
+                    if (data.inputs.enable !== undefined) setEnable(data.inputs.enable);
+                }
+            }, [data.inputs]);
+
+            useEffect(() => {
+                const result = enable ? signal : null;
+                setOutput(result);
+                if (onUpdateRef.current) {
+                    onUpdateRef.current(id, { output: result });
+                }
+            }, [signal, enable, id]);
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-signal" style={{ top: '30%' }} data-type="any" data-label="Signal" />
+                    <Handle type="target" position={Position.Left} id="in-enable" style={{ top: '70%' }} data-type="boolean" data-label="Enable" />
+                    
+                    <div className="node-header">Bool Gate</div>
+                    <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
+                        <div>Signal: {signal !== null ? String(signal) : '-'}</div>
+                        <div>Enable: {enable ? 'ON' : 'OFF'}</div>
+                        <div style={{ marginTop: '5px', fontWeight: 'bold' }}>
+                            Output: {output !== null ? String(output) : 'BLOCKED'}
+                        </div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="any" data-label="Out" />
+                </div>
+            );
+        }
+
         // Define port types for each node type
         const portTypes = {
             motorNode: {
@@ -1272,6 +1427,24 @@
                 outputs: {
                     'out-output': 'any'
                 }
+            },
+            comparatorNode: {
+                inputs: {
+                    'in-a': 'number',
+                    'in-b': 'number'
+                },
+                outputs: {
+                    'out-output': 'boolean'
+                }
+            },
+            boolGateNode: {
+                inputs: {
+                    'in-signal': 'any',
+                    'in-enable': 'boolean'
+                },
+                outputs: {
+                    'out-output': 'any'
+                }
             }
         };
 
@@ -1286,7 +1459,9 @@
             xorNode: XorNode,
             notNode: NotNode,
             pulseTimerNode: PulseTimerNode,
-            delayTimerNode: DelayTimerNode
+            delayTimerNode: DelayTimerNode,
+            comparatorNode: ComparatorNode,
+            boolGateNode: BoolGateNode
         };
 
         // Main App Component
@@ -1776,6 +1951,28 @@
                                     <div className="palette-node-title">⏱️ Delay Timer</div>
                                     <div className="palette-node-desc">
                                         Delays signal by set time
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'comparatorNode')}
+                                >
+                                    <div className="palette-node-title">🔢 Comparator</div>
+                                    <div className="palette-node-desc">
+                                        Compare numbers (&gt;, &lt;, ==)
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'boolGateNode')}
+                                >
+                                    <div className="palette-node-title">🚪 Bool Gate</div>
+                                    <div className="palette-node-desc">
+                                        Pass signal if enabled
                                     </div>
                                 </div>
                             </div>
