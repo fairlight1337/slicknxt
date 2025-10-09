@@ -159,6 +159,17 @@
             cursor: grabbing;
         }
 
+        .palette-node.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            border-color: #333;
+        }
+
+        .palette-node.disabled:hover {
+            transform: none;
+            border-color: #333;
+        }
+
         .palette-node-title {
             font-weight: 600;
             color: #00d4ff;
@@ -789,6 +800,8 @@
             const [edges, setEdges, onEdgesChange] = useEdgesState([]);
             const [reactFlowInstance, setReactFlowInstance] = useState(null);
             const [selectedEdge, setSelectedEdge] = useState(null);
+            const [selectedNode, setSelectedNode] = useState(null);
+            const [usedDevices, setUsedDevices] = useState(new Set());
             const nodeOutputsRef = useRef({});
             const edgesRef = useRef([]);
             
@@ -935,15 +948,23 @@
             const onEdgeClick = useCallback((event, edge) => {
                 event.stopPropagation();
                 setSelectedEdge(edge.id);
+                setSelectedNode(null);
+            }, []);
+
+            const onNodeClick = useCallback((event, node) => {
+                event.stopPropagation();
+                setSelectedNode(node.id);
+                setSelectedEdge(null);
             }, []);
 
             // Clear selection when clicking on canvas
             const onPaneClick = useCallback(() => {
                 setSelectedEdge(null);
+                setSelectedNode(null);
             }, []);
 
-            // Delete selected edge
-            const deleteSelectedEdge = useCallback(() => {
+            // Delete selected edge or node
+            const deleteSelected = useCallback(() => {
                 if (selectedEdge) {
                     const edgeToDelete = edges.find(e => e.id === selectedEdge);
                     setEdges((eds) => eds.filter((e) => e.id !== selectedEdge));
@@ -967,8 +988,27 @@
                             return node;
                         }));
                     }
+                } else if (selectedNode) {
+                    const nodeToDelete = nodes.find(n => n.id === selectedNode);
+                    
+                    // Remove the node
+                    setNodes((nds) => nds.filter((n) => n.id !== selectedNode));
+                    
+                    // Remove any edges connected to this node
+                    setEdges((eds) => eds.filter((e) => e.source !== selectedNode && e.target !== selectedNode));
+                    
+                    // If it's a device node, re-enable it in the palette
+                    if (nodeToDelete && nodeToDelete.data.deviceId) {
+                        setUsedDevices(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(nodeToDelete.data.deviceId);
+                            return newSet;
+                        });
+                    }
+                    
+                    setSelectedNode(null);
                 }
-            }, [selectedEdge, edges, setEdges, setNodes]);
+            }, [selectedEdge, selectedNode, edges, nodes, setEdges, setNodes, setUsedDevices]);
 
             const onDragOver = useCallback((event) => {
                 event.preventDefault();
@@ -980,7 +1020,15 @@
                     event.preventDefault();
 
                     const type = event.dataTransfer.getData('application/reactflow');
+                    const deviceId = event.dataTransfer.getData('application/device-id');
+                    
                     if (typeof type === 'undefined' || !type) {
+                        return;
+                    }
+
+                    // Check if this device is already in use
+                    if (deviceId && usedDevices.has(deviceId)) {
+                        console.warn(`Device ${deviceId} is already in use`);
                         return;
                     }
 
@@ -997,17 +1045,26 @@
                             label: type === 'motorNode' ? 'Motor - Port A' : undefined,
                             onUpdate: handleNodeUpdate,
                             inputs: {},
-                            connectedInputs: []
+                            connectedInputs: [],
+                            deviceId: deviceId || null // Store device ID for tracking
                         },
                     };
 
                     setNodes((nds) => nds.concat(newNode));
+                    
+                    // Mark device as used if it has a device ID
+                    if (deviceId) {
+                        setUsedDevices(prev => new Set(prev).add(deviceId));
+                    }
                 },
-                [reactFlowInstance, setNodes, handleNodeUpdate]
+                [reactFlowInstance, setNodes, handleNodeUpdate, usedDevices]
             );
 
-            const onDragStart = (event, nodeType) => {
+            const onDragStart = (event, nodeType, deviceId) => {
                 event.dataTransfer.setData('application/reactflow', nodeType);
+                if (deviceId) {
+                    event.dataTransfer.setData('application/device-id', deviceId);
+                }
                 event.dataTransfer.effectAllowed = 'move';
             };
 
@@ -1046,6 +1103,15 @@
                         }));
                         setNodes(nodesWithCallbacks || []);
                         setEdges(flow.edges || []);
+                        
+                        // Rebuild used devices set
+                        const devices = new Set();
+                        flow.nodes.forEach(node => {
+                            if (node.data.deviceId) {
+                                devices.add(node.data.deviceId);
+                            }
+                        });
+                        setUsedDevices(devices);
                     }
                 } catch (error) {
                     console.error('Error loading flow:', error);
@@ -1059,11 +1125,11 @@
                         <div className="header-buttons">
                             <button 
                                 className="btn btn-danger" 
-                                onClick={deleteSelectedEdge}
-                                disabled={!selectedEdge}
-                                title="Delete selected connection"
+                                onClick={deleteSelected}
+                                disabled={!selectedEdge && !selectedNode}
+                                title={selectedNode ? "Delete selected block" : "Delete selected connection"}
                             >
-                                🗑️ Delete Connection
+                                🗑️ {selectedNode ? 'Delete Block' : 'Delete Connection'}
                             </button>
                             <button className="btn btn-secondary" onClick={loadFlow}>Load Flow</button>
                             <button className="btn btn-primary" onClick={saveFlow}>Save Flow</button>
@@ -1076,9 +1142,13 @@
                             <h3>Connected Devices</h3>
                             <div className="node-palette">
                                 <div
-                                    className="palette-node"
-                                    draggable
-                                    onDragStart={(e) => onDragStart(e, 'motorNode')}
+                                    className={`palette-node ${usedDevices.has('motor-port-a') ? 'disabled' : ''}`}
+                                    draggable={!usedDevices.has('motor-port-a')}
+                                    onDragStart={(e) => {
+                                        if (!usedDevices.has('motor-port-a')) {
+                                            onDragStart(e, 'motorNode', 'motor-port-a');
+                                        }
+                                    }}
                                 >
                                     <div className="palette-node-title">⚙️ Motor - Port A</div>
                                     <div className="palette-node-desc">
@@ -1158,6 +1228,7 @@
                                 onEdgesChange={onEdgesChange}
                                 onConnect={onConnect}
                                 onEdgeClick={onEdgeClick}
+                                onNodeClick={onNodeClick}
                                 onPaneClick={onPaneClick}
                                 onInit={setReactFlowInstance}
                                 onDrop={onDrop}
