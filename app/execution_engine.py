@@ -264,6 +264,7 @@ class DialNode(Node):
     def set_user_input(self, control: str, value: Any):
         if control == "value":
             self.value = int(value)
+            self.outputs["value"] = self.value
 
 
 class SwitchNode(Node):
@@ -280,6 +281,7 @@ class SwitchNode(Node):
     def set_user_input(self, control: str, value: Any):
         if control == "value":
             self.value = bool(value)
+            self.outputs["value"] = self.value
 
 
 class MotorNode(Node):
@@ -290,6 +292,12 @@ class MotorNode(Node):
         self.on_off = False
         self.forward = True
         self.speed = 50
+        # Initialize outputs with defaults
+        self.outputs = {
+            "onOff": self.on_off,
+            "forward": self.forward,
+            "speed": self.speed
+        }
     
     async def execute(self) -> Dict[str, Any]:
         # Use connected inputs if available, otherwise use internal state
@@ -312,10 +320,13 @@ class MotorNode(Node):
     def set_user_input(self, control: str, value: Any):
         if control == "onOff" and "onOff" not in self.connected_inputs:
             self.on_off = bool(value)
+            self.outputs["onOff"] = self.on_off
         elif control == "forward" and "forward" not in self.connected_inputs:
             self.forward = bool(value)
+            self.outputs["forward"] = self.forward
         elif control == "speed" and "speed" not in self.connected_inputs:
             self.speed = int(value)
+            self.outputs["speed"] = self.speed
 
 
 class NumberDisplayNode(Node):
@@ -540,6 +551,8 @@ class HistoryDisplayNode(Node):
         self.max_points = 50
         self.sample_rate = 0.5
         self.last_sample = time.time()
+        # Initialize inputs with default sample rate
+        self.inputs["sampleRate"] = self.sample_rate
     
     async def execute(self) -> Dict[str, Any]:
         value = self.inputs.get("value", None)
@@ -558,6 +571,9 @@ class HistoryDisplayNode(Node):
     def set_user_input(self, control: str, value: Any):
         if control == "sampleRate":
             self.sample_rate = float(value)
+            # Update inputs so it's reflected in state
+            if "sampleRate" not in self.connected_inputs:
+                self.inputs["sampleRate"] = self.sample_rate
 
 
 class IntegratorNode(Node):
@@ -568,6 +584,9 @@ class IntegratorNode(Node):
         self.accumulator = 0.0
         self.enabled = True
         self.last_update = time.time()
+        # Initialize inputs with defaults
+        self.inputs["enabled"] = self.enabled
+        self.inputs["reset"] = False
     
     async def execute(self) -> Dict[str, Any]:
         input_val = self.inputs.get("input", 0)
@@ -590,8 +609,12 @@ class IntegratorNode(Node):
     def set_user_input(self, control: str, value: Any):
         if control == "enabled":
             self.enabled = bool(value)
+            if "enabled" not in self.connected_inputs:
+                self.inputs["enabled"] = self.enabled
         elif control == "reset":
             self.accumulator = 0.0
+            if "reset" not in self.connected_inputs:
+                self.inputs["reset"] = True
 
 
 class PControllerNode(Node):
@@ -603,6 +626,9 @@ class PControllerNode(Node):
         self.p_gain = 1.0
         self.setpoint = 50
         self.current_value = 0
+        # Initialize inputs with defaults
+        self.inputs["enabled"] = self.enabled
+        self.inputs["pGain"] = self.p_gain
     
     async def execute(self) -> Dict[str, Any]:
         enabled = self.inputs.get("enabled", self.enabled)
@@ -626,6 +652,10 @@ class PControllerNode(Node):
     def set_user_input(self, control: str, value: Any):
         if control == "enabled":
             self.enabled = bool(value)
+            if "enabled" not in self.connected_inputs:
+                self.inputs["enabled"] = self.enabled
         elif control == "pGain":
             self.p_gain = float(value)
+            if "pGain" not in self.connected_inputs:
+                self.inputs["pGain"] = self.p_gain
 

@@ -2095,6 +2095,60 @@
             const edgesRef = useRef([]);
             const notificationIdRef = useRef(0);
             const wsRef = useRef(null);
+            const isReceivingUpdateRef = useRef(false);
+            
+            // Load current flow and execution state from server on mount
+            useEffect(() => {
+                const loadCurrentState = async () => {
+                    try {
+                        isReceivingUpdateRef.current = true;
+                        
+                        // Load flow
+                        const flowResponse = await fetch('/api/flow/current');
+                        const flowData = await flowResponse.json();
+                        
+                        if (flowData.nodes && flowData.nodes.length > 0) {
+                            console.log('Loading current flow from server:', flowData);
+                            const nodesWithCallbacks = flowData.nodes.map(node => ({
+                                ...node,
+                                data: {
+                                    ...node.data,
+                                    sendUserInput: sendUserInput,
+                                    serverState: null
+                                }
+                            }));
+                            setNodes(nodesWithCallbacks);
+                            setEdges(flowData.edges || []);
+                            
+                            // Update used devices
+                            const devices = new Set();
+                            flowData.nodes.forEach(node => {
+                                if (node.data.deviceId) {
+                                    devices.add(node.data.deviceId);
+                                }
+                            });
+                            setUsedDevices(devices);
+                        }
+                        
+                        // Load execution state
+                        const execResponse = await fetch('/api/flow/execution-state');
+                        const execData = await execResponse.json();
+                        console.log('Loading execution state from server:', execData.isExecuting);
+                        setIsExecuting(execData.isExecuting);
+                        
+                        // Reset flag after state updates (longer delay to ensure React finishes)
+                        setTimeout(() => {
+                            isReceivingUpdateRef.current = false;
+                            console.log('Ready to sync local changes after initial load');
+                        }, 500);
+                    } catch (error) {
+                        console.error('Error loading current state:', error);
+                        isReceivingUpdateRef.current = false;
+                    }
+                };
+                
+                loadCurrentState();
+            }, []);
             
             // WebSocket connection
             useEffect(() => {
@@ -2114,6 +2168,41 @@
                         // Update node state from server
                         console.log('Received state update:', message.nodeId, message.state);
                         handleServerStateUpdate(message.nodeId, message.state);
+                    } else if (message.type === 'flow_update') {
+                        // Another client updated the flow
+                        console.log('Received flow update from server');
+                        isReceivingUpdateRef.current = true;
+                        
+                        const flowData = message.flow;
+                        const nodesWithCallbacks = flowData.nodes.map(node => ({
+                            ...node,
+                            data: {
+                                ...node.data,
+                                sendUserInput: sendUserInput,
+                                serverState: node.data.serverState || null
+                            }
+                        }));
+                        setNodes(nodesWithCallbacks);
+                        setEdges(flowData.edges || []);
+                        
+                        // Update used devices
+                        const devices = new Set();
+                        flowData.nodes.forEach(node => {
+                            if (node.data.deviceId) {
+                                devices.add(node.data.deviceId);
+                            }
+                        });
+                        setUsedDevices(devices);
+                        
+                        // Reset flag after state updates (longer delay to ensure React finishes)
+                        setTimeout(() => {
+                            isReceivingUpdateRef.current = false;
+                            console.log('Ready to sync local changes after receiving update');
+                        }, 500);
+                    } else if (message.type === 'execution_state') {
+                        // Execution state changed (start/stop from another client)
+                        console.log('Received execution state update:', message.isExecuting);
+                        setIsExecuting(message.isExecuting);
                     }
                 };
                 
@@ -2131,7 +2220,7 @@
                         ws.close();
                     }
                 };
-            }, []);
+            }, [sendUserInput]);
             
             // Keep edges ref in sync
             useEffect(() => {
@@ -2198,24 +2287,24 @@
                 }
             };
 
-            // Load flow into server executor
-            const loadFlowIntoExecutor = async (flowData) => {
+            // Update flow on server
+            const updateFlowOnServer = useCallback(async (flowData) => {
                 try {
-                    const response = await fetch('/api/flow/load', {
+                    const response = await fetch('/api/flow/update', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(flowData)
                     });
                     
                     if (response.ok) {
-                        console.log('Flow loaded into executor');
+                        console.log('Flow updated on server');
                         return true;
                     }
                 } catch (error) {
-                    console.error('Error loading flow into executor:', error);
+                    console.error('Error updating flow on server:', error);
                 }
                 return false;
-            };
+            }, []);
 
             // Notification system
             const showNotification = useCallback((message, type = 'success') => {
@@ -2237,8 +2326,20 @@
                 }, 3000);
             }, []);
 
-            // Update connected inputs info whenever edges change
+            // Sync flow to server whenever nodes or edges change
             useEffect(() => {
+                // Don't update if we're receiving an update from server
+                if (isReceivingUpdateRef.current) {
+                    console.log('Skipping sync - receiving server update');
+                    return;
+                }
+                
+                // Don't update on initial mount (empty flow)
+                if (nodes.length === 0 && edges.length === 0) {
+                    return;
+                }
+                
+                // Update connected inputs inline before syncing
                 const updatedNodes = nodes.map(node => {
                     const connectedInputs = edges
                         .filter(edge => edge.target === node.id)
@@ -2252,18 +2353,15 @@
                         }
                     };
                 });
-                
-                setNodes(updatedNodes);
 
-                // Reload flow into executor when topology changes (debounced)
+                // Debounced update to server
                 const timeoutId = setTimeout(() => {
-                    if (updatedNodes.length > 0) {
-                        loadFlowIntoExecutor({ nodes: updatedNodes, edges });
-                    }
+                    console.log('Syncing flow to server - nodes:', updatedNodes.length, 'edges:', edges.length);
+                    updateFlowOnServer({ nodes: updatedNodes, edges });
                 }, 300);
 
                 return () => clearTimeout(timeoutId);
-            }, [edges]);
+            }, [nodes, edges, updateFlowOnServer]);
 
             // Helper to convert handle ID to input key (kebab-case to camelCase)
             const handleToInputKey = (handleId) => {
@@ -2534,6 +2632,8 @@
 
             const loadFlowFromFile = async (filename) => {
                 try {
+                    isReceivingUpdateRef.current = true;
+                    
                     const response = await fetch(`/api/flows/load/${filename}`);
                     const flow = await response.json();
                     
@@ -2560,17 +2660,26 @@
                         setUsedDevices(devices);
                         setShowLoadModal(false);
                         
-                        // Load flow into server executor
-                        const loaded = await loadFlowIntoExecutor({ 
-                            nodes: nodesWithCallbacks, 
-                            edges: flow.edges 
-                        });
-                        
-                        if (loaded) {
-                            showNotification('Flow loaded successfully', 'success');
-                        } else {
-                            showNotification('Flow loaded but executor failed', 'warning');
-                        }
+                        // Wait for state to update, then update server
+                        setTimeout(async () => {
+                            // Load flow into server executor
+                            const loaded = await updateFlowOnServer({ 
+                                nodes: nodesWithCallbacks, 
+                                edges: flow.edges 
+                            });
+                            
+                            if (loaded) {
+                                showNotification('Flow loaded successfully', 'success');
+                            } else {
+                                showNotification('Flow loaded but executor failed', 'warning');
+                            }
+                            
+                            // Reset flag after update completes
+                            setTimeout(() => {
+                                isReceivingUpdateRef.current = false;
+                                console.log('Ready to sync local changes after loading file');
+                            }, 500);
+                        }, 100);
                     }
                 } catch (error) {
                     console.error('Error loading flow:', error);

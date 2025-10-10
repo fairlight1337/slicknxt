@@ -27,6 +27,15 @@ executor_task: Optional[asyncio.Task] = None
 # WebSocket connections for state updates
 active_connections: List[WebSocket] = []
 
+# Current flow state (shared across all clients)
+current_flow: Dict[str, Any] = {
+    "nodes": [],
+    "edges": []
+}
+
+# Execution state (shared across all clients)
+is_executing: bool = False
+
 class NodeData(BaseModel):
     id: str
     type: str
@@ -53,6 +62,35 @@ class SaveFlowRequest(BaseModel):
 async def root():
     """Serve the main HTML page"""
     return FileResponse("app/static/index.html")
+
+@app.get("/api/flow/current")
+async def get_current_flow():
+    """Get the current flow state"""
+    return current_flow
+
+@app.get("/api/flow/execution-state")
+async def get_execution_state():
+    """Get the current execution state"""
+    return {"isExecuting": is_executing}
+
+@app.post("/api/flow/update")
+async def update_current_flow(flow: Flow):
+    """Update the current flow and broadcast to all clients"""
+    global current_flow
+    
+    current_flow = flow.dict()
+    
+    # Reload into executor
+    executor.load_flow(current_flow)
+    
+    # Broadcast initial state for all nodes
+    for node_id, node in executor.nodes.items():
+        await broadcast_state_update(node_id, node.get_state())
+    
+    # Broadcast flow update to all clients
+    await broadcast_flow_update(current_flow)
+    
+    return {"status": "updated", "message": f"Flow updated with {len(flow.nodes)} nodes"}
 
 @app.get("/api/flows/list")
 async def list_flows():
@@ -140,7 +178,7 @@ async def delete_flow(filename: str):
 @app.post("/api/flow/start")
 async def start_flow_execution():
     """Start executing the current flow"""
-    global executor_task
+    global executor_task, is_executing
     
     if executor_task and not executor_task.done():
         return {"status": "already_running", "message": "Flow is already executing"}
@@ -152,6 +190,11 @@ async def start_flow_execution():
     # Start execution in background
     try:
         executor_task = asyncio.create_task(executor.run())
+        is_executing = True
+        
+        # Broadcast execution state to all clients
+        await broadcast_execution_state(True)
+        
         return {"status": "started", "message": "Flow execution started"}
     except Exception as e:
         return {"status": "error", "message": f"Failed to start: {str(e)}"}
@@ -160,7 +203,7 @@ async def start_flow_execution():
 @app.post("/api/flow/stop")
 async def stop_flow_execution():
     """Stop executing the current flow"""
-    global executor_task
+    global executor_task, is_executing
     
     if not executor_task or executor_task.done():
         return {"status": "not_running", "message": "Flow is not executing"}
@@ -168,6 +211,10 @@ async def stop_flow_execution():
     executor.stop()
     await executor_task
     executor_task = None
+    is_executing = False
+    
+    # Broadcast execution state to all clients
+    await broadcast_execution_state(False)
     
     return {"status": "stopped", "message": "Flow execution stopped"}
 
@@ -175,7 +222,7 @@ async def stop_flow_execution():
 @app.post("/api/flow/load")
 async def load_and_start_flow(flow: Flow):
     """Load a flow into the executor"""
-    global executor_task
+    global executor_task, current_flow
     
     # Stop existing execution
     if executor_task and not executor_task.done():
@@ -183,8 +230,11 @@ async def load_and_start_flow(flow: Flow):
         await executor_task
         executor_task = None
     
+    # Update current flow
+    current_flow = flow.dict()
+    
     # Load the flow
-    executor.load_flow(flow.dict())
+    executor.load_flow(current_flow)
     
     # Broadcast initial state for all nodes
     for node_id, node in executor.nodes.items():
@@ -214,6 +264,44 @@ async def broadcast_state_update(node_id: str, state: Dict[str, Any]):
         "type": "node_state",
         "nodeId": node_id,
         "state": state
+    })
+    
+    # Remove disconnected clients
+    disconnected = []
+    for connection in active_connections:
+        try:
+            await connection.send_text(message)
+        except:
+            disconnected.append(connection)
+    
+    for conn in disconnected:
+        active_connections.remove(conn)
+
+
+async def broadcast_flow_update(flow_data: Dict[str, Any]):
+    """Broadcast flow update to all connected WebSocket clients"""
+    message = json.dumps({
+        "type": "flow_update",
+        "flow": flow_data
+    })
+    
+    # Remove disconnected clients
+    disconnected = []
+    for connection in active_connections:
+        try:
+            await connection.send_text(message)
+        except:
+            disconnected.append(connection)
+    
+    for conn in disconnected:
+        active_connections.remove(conn)
+
+
+async def broadcast_execution_state(executing: bool):
+    """Broadcast execution state to all connected WebSocket clients"""
+    message = json.dumps({
+        "type": "execution_state",
+        "isExecuting": executing
     })
     
     # Remove disconnected clients
