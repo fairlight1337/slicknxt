@@ -153,11 +153,86 @@
             color: var(--bg-primary);
             transform: rotate(180deg);
         }
+        
+        .execution-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 2px solid;
+        }
+        
+        .execution-status.running {
+            background: rgba(0, 255, 136, 0.1);
+            border-color: #00ff88;
+            color: #00ff88;
+        }
+        
+        .execution-status.stopped {
+            background: rgba(255, 68, 68, 0.1);
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        
+        .status-indicator.running {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.6;
+                transform: scale(1.2);
+            }
+        }
 
         .main-container {
             display: flex;
             flex: 1;
             overflow: hidden;
+        }
+        
+        .main-container.executing {
+            position: relative;
+        }
+        
+        .main-container.executing::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                #00ff88 20%, 
+                #00ff88 80%, 
+                transparent 100%
+            );
+            animation: scan 2s linear infinite;
+            z-index: 1000;
+        }
+        
+        @keyframes scan {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
         }
 
         .sidebar {
@@ -287,10 +362,15 @@
 
         .flow-canvas {
             flex: 1;
-            background: #1a1a2e;
+            background: var(--bg-primary);
             position: relative;
             width: 100%;
             height: 100%;
+            transition: box-shadow 0.3s;
+        }
+        
+        .main-container.executing .flow-canvas {
+            box-shadow: inset 0 0 30px rgba(0, 255, 136, 0.15);
         }
 
         .react-flow__node {
@@ -304,8 +384,8 @@
 
         .react-flow__node.selected {
             border-color: var(--accent-primary);
-            box-shadow: 0 0 0 2px var(--accent-primary);
-            opacity: 0.3;
+            box-shadow: 0 0 0 3px var(--accent-primary);
+            opacity: 1 !important;
         }
 
         .react-flow__handle {
@@ -2932,7 +3012,13 @@
             return (
                 <>
                     <div className="header">
-                        <h1>🚀 SlickNXT - Node-RED Interface</h1>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            <h1>🚀 SlickNXT - Node-RED Interface</h1>
+                            <div className={`execution-status ${isExecuting ? 'running' : 'stopped'}`}>
+                                <div className={`status-indicator ${isExecuting ? 'running' : ''}`}></div>
+                                {isExecuting ? 'RUNNING' : 'STOPPED'}
+                            </div>
+                        </div>
                         <div className="header-buttons">
                             {isExecuting ? (
                                 <button className="btn btn-danger" onClick={stopExecution} title="Stop flow execution">
@@ -2960,7 +3046,7 @@
                             </button>
                         </div>
                     </div>
-                    <div className="main-container">
+                    <div className={`main-container ${isExecuting ? 'executing' : ''}`}>
                         <div className="sidebar">
                             <h2>Node Palette</h2>
                             
