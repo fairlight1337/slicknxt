@@ -111,6 +111,7 @@ class FlowExecutor:
             "orNode": OrNode,
             "xorNode": XorNode,
             "notNode": NotNode,
+            "toggleNode": ToggleNode,
             "pulseTimerNode": PulseTimerNode,
             "delayTimerNode": DelayTimerNode,
             "comparatorNode": ComparatorNode,
@@ -336,7 +337,7 @@ class NumberDisplayNode(Node):
         # Just passes through the value
         value = self.inputs.get("value", 0)
         self.data["displayValue"] = value
-        return {}
+        return {"value": value}
 
 
 class BoolDisplayNode(Node):
@@ -346,7 +347,7 @@ class BoolDisplayNode(Node):
         # Just passes through the value
         value = self.inputs.get("value", False)
         self.data["displayValue"] = value
-        return {}
+        return {"value": value}
 
 
 class AndNode(Node):
@@ -382,6 +383,37 @@ class NotNode(Node):
     async def execute(self) -> Dict[str, Any]:
         input_val = self.inputs.get("input", False)
         return {"output": not input_val}
+
+
+class ToggleNode(Node):
+    """Toggle - flips output state on rising or falling edge"""
+    
+    def __init__(self, node_id: str, node_type: str, data: Dict[str, Any]):
+        super().__init__(node_id, node_type, data)
+        self.output_state = False
+        self.prev_input = False
+        self.edge_mode = "rising"  # "rising" or "falling"
+        self.outputs = {"output": self.output_state}
+    
+    async def execute(self) -> Dict[str, Any]:
+        current_input = self.inputs.get("input", False)
+        
+        # Detect edge
+        if self.edge_mode == "rising":
+            # Toggle on rising edge (false -> true)
+            if current_input and not self.prev_input:
+                self.output_state = not self.output_state
+        elif self.edge_mode == "falling":
+            # Toggle on falling edge (true -> false)
+            if not current_input and self.prev_input:
+                self.output_state = not self.output_state
+        
+        self.prev_input = current_input
+        return {"output": self.output_state}
+    
+    def set_user_input(self, control: str, value: Any):
+        if control == "edgeMode":
+            self.edge_mode = value
 
 
 class PulseTimerNode(Node):
@@ -432,8 +464,9 @@ class PulseTimerNode(Node):
             self.on_duration = float(value)
         elif control == "offDuration":
             self.off_duration = float(value)
-        elif control == "enabled":
+        elif control == "enable":
             self.enabled = bool(value)
+            self.inputs["enable"] = self.enabled
 
 
 class DelayTimerNode(Node):
@@ -495,10 +528,10 @@ class BoolGateNode(Node):
     """Passes signal through only if enabled"""
     
     async def execute(self) -> Dict[str, Any]:
-        signal = self.inputs.get("signal", None)
-        enable = self.inputs.get("enable", False)
+        value = self.inputs.get("value", 0)
+        gate = self.inputs.get("gate", False)
         
-        return {"output": signal if enable else None}
+        return {"output": value if gate else 0}
 
 
 class CapNode(Node):
@@ -555,18 +588,22 @@ class HistoryDisplayNode(Node):
         self.inputs["sampleRate"] = self.sample_rate
     
     async def execute(self) -> Dict[str, Any]:
-        value = self.inputs.get("value", None)
+        value = self.inputs.get("value", 0)
         sample_rate = self.inputs.get("sampleRate", self.sample_rate)
         
         now = time.time()
-        if value is not None and now - self.last_sample >= sample_rate:
+        if now - self.last_sample >= sample_rate:
             self.history.append(value)
             if len(self.history) > self.max_points:
                 self.history.pop(0)
             self.last_sample = now
         
         self.data["history"] = self.history.copy()
-        return {}
+        return {
+            "currentValue": value,
+            "history": self.history.copy(),
+            "sampleRate": sample_rate
+        }
     
     def set_user_input(self, control: str, value: Any):
         if control == "sampleRate":
@@ -599,12 +636,15 @@ class IntegratorNode(Node):
             now = time.time()
             dt = now - self.last_update
             self.accumulator += input_val * dt
-            # Clamp to reasonable range
-            self.accumulator = max(-1000, min(1000, self.accumulator))
+            # Clamp to [0, 100] range
+            self.accumulator = max(0, min(100, self.accumulator))
             self.last_update = now
         
         self.enabled = enabled
-        return {"output": round(self.accumulator)}
+        return {
+            "output": round(self.accumulator),
+            "accumulator": round(self.accumulator)
+        }
     
     def set_user_input(self, control: str, value: Any):
         if control == "enabled":
@@ -638,7 +678,10 @@ class PControllerNode(Node):
         
         if enabled:
             error = setpoint - current
-            output = round(p_gain * error)
+            output = p_gain * error
+            # Clamp output to [-100, 100]
+            output = max(-100, min(100, output))
+            output = round(output)
         else:
             output = 0
         

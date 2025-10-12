@@ -1106,6 +1106,59 @@
             );
         }
 
+        // Toggle Node
+        function ToggleNode({ data, id }) {
+            // Get values from server state
+            const input = data.serverState?.inputs?.input ?? false;
+            const output = data.serverState?.outputs?.output ?? false;
+            
+            // Local state for edge mode (controlled by user)
+            const [edgeMode, setEdgeMode] = React.useState('rising');
+            
+            const handleModeClick = () => {
+                const newMode = edgeMode === 'rising' ? 'falling' : 'rising';
+                setEdgeMode(newMode);
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'edgeMode', newMode);
+                }
+            };
+
+            return (
+                <div>
+                    <Handle type="target" position={Position.Left} id="in-input" style={{ top: '50%' }} data-type="boolean" data-label="In" />
+                    <div className="port-value port-value-left" style={{ top: '50%' }}>
+                        {input ? '1' : '0'}
+                    </div>
+                    
+                    <div className="node-header">Toggle</div>
+                    <div style={{ padding: '10px', textAlign: 'center', fontSize: '12px' }}>
+                        <div>IN: {input ? '1' : '0'}</div>
+                        <button 
+                            onClick={handleModeClick}
+                            style={{
+                                margin: '5px auto',
+                                padding: '3px 8px',
+                                fontSize: '10px',
+                                cursor: 'pointer',
+                                background: '#4CAF50',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '3px'
+                            }}
+                        >
+                            {edgeMode === 'rising' ? '↑ Rising' : '↓ Falling'}
+                        </button>
+                        <div style={{ marginTop: '5px', fontWeight: 'bold' }}>OUT: {output ? '1' : '0'}</div>
+                    </div>
+
+                    <Handle type="source" position={Position.Right} id="out-output" style={{ top: '50%' }} data-type="boolean" data-label="Out" />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {output ? '1' : '0'}
+                    </div>
+                </div>
+            );
+        }
+
         // Pulse Timer Node
         function PulseTimerNode({ data, id }) {
             // Get values from server state  
@@ -1960,6 +2013,14 @@
                     'out-output': 'boolean'
                 }
             },
+            toggleNode: {
+                inputs: {
+                    'in-input': 'boolean'
+                },
+                outputs: {
+                    'out-output': 'boolean'
+                }
+            },
             pulseTimerNode: {
                 inputs: {
                     'in-enable': 'boolean',
@@ -2064,6 +2125,7 @@
             orNode: OrNode,
             xorNode: XorNode,
             notNode: NotNode,
+            toggleNode: ToggleNode,
             pulseTimerNode: PulseTimerNode,
             delayTimerNode: DelayTimerNode,
             comparatorNode: ComparatorNode,
@@ -3007,6 +3069,17 @@
                                     <div className="palette-node-title">⚡ NOT Gate</div>
                                     <div className="palette-node-desc">
                                         Logical NOT operation
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="palette-node"
+                                    draggable
+                                    onDragStart={(e) => onDragStart(e, 'toggleNode')}
+                                >
+                                    <div className="palette-node-title">🔄 Toggle</div>
+                                    <div className="palette-node-desc">
+                                        Flip on rising/falling edge
                                     </div>
                                 </div>
 
