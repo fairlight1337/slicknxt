@@ -96,6 +96,29 @@ async def get_hardware_config():
     return hardware_manager.get_hardware_config()
 
 
+@app.post("/api/hardware/rescan")
+async def rescan_hardware():
+    """Manually trigger hardware detection and broadcast"""
+    logger.info("Manual hardware rescan requested")
+    
+    # Force reconnect if needed
+    if not hardware_manager.is_connected:
+        hardware_manager.connect_brick()
+    
+    # Detect motors
+    motors = hardware_manager.detect_motors()
+    hardware_manager.connected_motors = motors
+    
+    # Get config and broadcast
+    config = hardware_manager.get_hardware_config()
+    logger.info(f"Manual scan result: {config}")
+    
+    # Broadcast to all clients
+    await broadcast_hardware_config(config)
+    
+    return {"status": "scanned", "config": config}
+
+
 @app.get("/api/flow/current")
 async def get_current_flow():
     """Get the current flow state"""
@@ -356,27 +379,34 @@ async def broadcast_hardware_config(hardware_config: Dict[str, Any]):
         "config": hardware_config
     })
     
+    logger.info(f"Broadcasting hardware config to {len(active_connections)} clients: {hardware_config}")
+    
     # Remove disconnected clients
     disconnected = []
     for connection in active_connections:
         try:
             await connection.send_text(message)
-        except:
+            logger.debug(f"Sent hardware config to client")
+        except Exception as e:
+            logger.warning(f"Failed to send to client: {e}")
             disconnected.append(connection)
     
     for conn in disconnected:
         active_connections.remove(conn)
+        logger.info(f"Removed disconnected client")
 
 
 async def on_hardware_change(hardware_config: Dict[str, Any]):
     """Callback when hardware configuration changes"""
-    logger.info(f"Hardware changed: {hardware_config}")
+    logger.info(f"🔧 Hardware changed callback triggered: {hardware_config}")
     
     # Broadcast to all clients
+    logger.info(f"Broadcasting to {len(active_connections)} active WebSocket connections")
     await broadcast_hardware_config(hardware_config)
     
     # Clean up nodes that are no longer available
     await cleanup_unavailable_nodes(hardware_config)
+    logger.info("Hardware change processing complete")
 
 
 async def cleanup_unavailable_nodes(hardware_config: Dict[str, Any]):
@@ -421,16 +451,19 @@ async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time state updates"""
     await websocket.accept()
     active_connections.append(websocket)
+    logger.info(f"New WebSocket client connected. Total clients: {len(active_connections)}")
     
     # Send initial hardware configuration to new client
     try:
         hardware_config = hardware_manager.get_hardware_config()
+        logger.info(f"Sending initial hardware config to new client: {hardware_config}")
         await websocket.send_text(json.dumps({
             "type": "hardware_config",
             "config": hardware_config
         }))
+        logger.debug("Initial hardware config sent successfully")
     except Exception as e:
-        logger.error(f"Error sending initial hardware config: {e}")
+        logger.error(f"Error sending initial hardware config: {e}", exc_info=True)
     
     try:
         # Keep connection alive and listen for client messages

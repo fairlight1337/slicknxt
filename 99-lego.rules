@@ -1,0 +1,10 @@
+# LEGO Mindstorms NXT udev rules
+# Place this file in /etc/udev/rules.d/
+
+# NXT in normal mode
+SUBSYSTEM=="usb", ATTR{idVendor}=="0694", ATTR{idProduct}=="0002", MODE="0666", GROUP="plugdev"
+
+# NXT in firmware update mode
+SUBSYSTEM=="usb", ATTR{idVendor}=="03eb", ATTR{idProduct}=="6124", MODE="0666", GROUP="plugdev"
+
+

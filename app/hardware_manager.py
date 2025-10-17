@@ -6,10 +6,12 @@ Detects and manages connected NXT motors and sensors
 
 import asyncio
 import logging
-from typing import Dict, Set, Optional, Callable
+from typing import Dict, Set, Optional, Callable, Any
 import nxt.locator
 import nxt.motor
 import nxt.sensor
+import nxt.sensor.generic
+import nxt.sensor.digital
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,7 +23,8 @@ class HardwareManager:
     def __init__(self):
         self.brick: Optional[any] = None
         self.connected_motors: Set[str] = set()  # {'A', 'B', 'C'}
-        self.connected_sensors: Set[str] = set()  # {'1', '2', '3', '4'}
+        self.connected_sensors: Dict[str, Any] = {}  # {'1': {'type': 'Touch', ...}, '2': {...}}
+        self.battery_level: int = 0  # Battery voltage in millivolts
         self.is_connected: bool = False
         self.change_callbacks: list[Callable] = []
         self.monitoring_task: Optional[asyncio.Task] = None
@@ -39,11 +42,13 @@ class HardwareManager:
     async def _notify_changes(self):
         """Notify all callbacks about hardware changes"""
         hardware_config = self.get_hardware_config()
+        logger.info(f"Notifying {len(self.change_callbacks)} callbacks about hardware change: {hardware_config}")
         for callback in self.change_callbacks:
             try:
                 await callback(hardware_config)
+                logger.debug(f"Callback {callback.__name__} executed successfully")
             except Exception as e:
-                logger.error(f"Error in hardware change callback: {e}")
+                logger.error(f"Error in hardware change callback {callback.__name__}: {e}", exc_info=True)
     
     def connect_brick(self) -> bool:
         """Connect to the NXT brick"""
@@ -69,45 +74,75 @@ class HardwareManager:
         self.is_connected = False
         self.connected_motors.clear()
         self.connected_sensors.clear()
+        self.battery_level = 0
     
     def detect_motors(self) -> Set[str]:
         """
-        Detect which motor ports have motors connected
+        Returns all motor ports (manual configuration)
         Returns: Set of port names ('A', 'B', 'C')
+        
+        Note: Since NXT firmware doesn't reliably detect motor presence without
+        moving them, we use manual configuration and assume all ports are available.
         """
         if not self.brick or not self.is_connected:
+            logger.debug("detect_motors: brick not connected")
             return set()
         
-        detected_motors = set()
-        
-        for port_char in ['A', 'B', 'C']:
-            try:
-                port = getattr(nxt.motor.Port, port_char)
-                motor = nxt.motor.Motor(self.brick, port)
-                
-                # Try to get motor state - if this succeeds, a motor is connected
-                state = motor.get_state()
-                if state:
-                    detected_motors.add(port_char)
-                    logger.debug(f"Motor detected on port {port_char}")
-            except Exception as e:
-                # No motor or error reading motor
-                logger.debug(f"No motor on port {port_char}: {e}")
-        
-        return detected_motors
+        # Manual configuration: assume all motor ports are available
+        motors = {'A', 'B', 'C'}
+        logger.info(f"Motor ports available: {motors}")
+        return motors
     
-    def detect_sensors(self) -> Set[str]:
+    def detect_sensors(self) -> Dict[str, Any]:
         """
-        Detect which sensor ports have sensors connected
-        Returns: Set of port numbers ('1', '2', '3', '4')
+        Auto-detect sensors on all ports using NXT autodetection
+        Returns: Dict of port -> sensor info
         """
         if not self.brick or not self.is_connected:
-            return set()
+            return {}
         
-        detected_sensors = set()
+        detected_sensors = {}
         
-        # For now, return empty set - we'll implement sensor detection later
-        # Sensor detection is more complex as different sensor types need different approaches
+        for port_num in [1, 2, 3, 4]:
+            try:
+                port = getattr(nxt.sensor.Port, f'S{port_num}')
+                
+                # Try autodetection (only works for digital sensors with ID info)
+                try:
+                    sensor = self.brick.get_sensor(port)
+                    sensor_type = type(sensor).__name__
+                    sensor_info = {
+                        'type': sensor_type,
+                        'port': port_num,
+                        'class': sensor_type
+                    }
+                    detected_sensors[str(port_num)] = sensor_info
+                    logger.info(f"✓ Sensor detected on port {port_num}: {sensor_type}")
+                except nxt.sensor.digital.SearchError:
+                    # No digital sensor with ID, try generic analog detection
+                    try:
+                        # Try to read as a generic analog sensor
+                        sensor = nxt.sensor.generic.TouchSensor(self.brick, port)
+                        # If we can read a value, something is connected
+                        value = sensor.get_sample()
+                        sensor_info = {
+                            'type': 'Analog',
+                            'port': port_num,
+                            'class': 'Generic'
+                        }
+                        detected_sensors[str(port_num)] = sensor_info
+                        logger.info(f"✓ Analog sensor detected on port {port_num}")
+                    except:
+                        logger.debug(f"✗ No sensor on port {port_num}")
+                except Exception as e:
+                    logger.debug(f"✗ No sensor on port {port_num}: {e}")
+            except Exception as e:
+                logger.error(f"Error checking port {port_num}: {e}")
+        
+        if detected_sensors:
+            logger.info(f"Sensor detection complete: {list(detected_sensors.keys())}")
+        else:
+            logger.info("Sensor detection complete: No sensors found")
         
         return detected_sensors
     
@@ -117,42 +152,70 @@ class HardwareManager:
         Detects changes and notifies callbacks
         """
         logger.info("Starting hardware monitoring")
+        first_connection = True
         
         while True:
             try:
                 # Try to connect if not connected
                 if not self.is_connected:
+                    logger.debug("Not connected, attempting to find NXT...")
                     if self.connect_brick():
                         # Connection established, detect hardware
+                        logger.info("NXT connected! Detecting hardware...")
                         prev_motors = self.connected_motors.copy()
-                        self.connected_motors = self.detect_motors()
+                        prev_sensors = self.connected_sensors.copy()
                         
-                        if prev_motors != self.connected_motors:
-                            logger.info(f"Motors detected: {self.connected_motors}")
+                        self.connected_motors = self.detect_motors()
+                        self.connected_sensors = self.detect_sensors()
+                        
+                        # Get battery level
+                        try:
+                            self.battery_level = self.brick.get_battery_level()
+                            logger.info(f"Battery level: {self.battery_level}mV ({self.battery_level/1000:.2f}V)")
+                        except Exception as e:
+                            logger.warning(f"Could not read battery level: {e}")
+                        
+                        # Always notify on first connection or if hardware changed
+                        if first_connection or prev_motors != self.connected_motors or prev_sensors != self.connected_sensors:
+                            logger.info(f"Initial hardware state: motors={self.connected_motors}, sensors={list(self.connected_sensors.keys())}")
                             await self._notify_changes()
+                            first_connection = False
                     else:
                         # Not connected, clear all hardware
-                        if self.connected_motors or self.connected_sensors:
+                        if self.connected_motors or self.connected_sensors or self.battery_level > 0:
+                            logger.info("Clearing hardware state (NXT disconnected)")
                             self.connected_motors.clear()
                             self.connected_sensors.clear()
+                            self.battery_level = 0
                             await self._notify_changes()
                 else:
-                    # Already connected, check for changes
+                    # Already connected, keep alive and check for changes
                     try:
-                        prev_motors = self.connected_motors.copy()
-                        self.connected_motors = self.detect_motors()
+                        # Keep NXT awake
+                        self.brick.keep_alive()
                         
-                        if prev_motors != self.connected_motors:
-                            logger.info(f"Motor configuration changed: {self.connected_motors}")
+                        # Update battery level
+                        try:
+                            self.battery_level = self.brick.get_battery_level()
+                        except:
+                            pass
+                        
+                        # Check for sensor changes (motors are manual config, so don't change)
+                        prev_sensors = self.connected_sensors.copy()
+                        self.connected_sensors = self.detect_sensors()
+                        
+                        if prev_sensors != self.connected_sensors:
+                            logger.info(f"Sensor configuration changed: {list(prev_sensors.keys())} -> {list(self.connected_sensors.keys())}")
                             await self._notify_changes()
                     except Exception as e:
                         # Lost connection
                         logger.warning(f"Lost connection to NXT: {e}")
                         self.disconnect_brick()
+                        first_connection = True
                         await self._notify_changes()
                 
             except Exception as e:
-                logger.error(f"Error in hardware monitoring: {e}")
+                logger.error(f"Error in hardware monitoring: {e}", exc_info=True)
             
             # Check every 2 seconds
             await asyncio.sleep(2.0)
@@ -174,7 +237,9 @@ class HardwareManager:
         return {
             "isConnected": self.is_connected,
             "motors": sorted(list(self.connected_motors)),
-            "sensors": sorted(list(self.connected_sensors))
+            "sensors": self.connected_sensors,
+            "batteryLevel": self.battery_level,
+            "batteryVoltage": round(self.battery_level / 1000.0, 2) if self.battery_level > 0 else 0
         }
     
     def get_motor(self, port: str) -> Optional[nxt.motor.Motor]:
