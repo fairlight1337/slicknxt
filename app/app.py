@@ -11,8 +11,13 @@ from pathlib import Path
 from datetime import datetime
 import os
 import asyncio
+import logging
 
 from execution_engine import FlowExecutor
+from hardware_manager import HardwareManager
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="SlickNXT - Node-RED Interface for NXT")
 
@@ -20,8 +25,11 @@ app = FastAPI(title="SlickNXT - Node-RED Interface for NXT")
 FLOWS_DIR = Path("flows")
 FLOWS_DIR.mkdir(exist_ok=True)
 
-# Global flow executor
-executor = FlowExecutor()
+# Global hardware manager
+hardware_manager = HardwareManager()
+
+# Global flow executor with hardware manager
+executor = FlowExecutor(hardware_manager)
 executor_task: Optional[asyncio.Task] = None
 
 # WebSocket connections for state updates
@@ -58,10 +66,35 @@ class SaveFlowRequest(BaseModel):
     flow: Flow
     overwrite: bool = False
 
+@app.on_event("startup")
+async def startup_event():
+    """Start hardware monitoring on application startup"""
+    # Register hardware change callback
+    hardware_manager.add_change_callback(on_hardware_change)
+    
+    # Start monitoring
+    hardware_manager.start_monitoring()
+    logger.info("Hardware monitoring started")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up on shutdown"""
+    hardware_manager.stop_monitoring()
+    hardware_manager.disconnect_brick()
+    logger.info("Hardware monitoring stopped")
+
+
 @app.get("/")
 async def root():
     """Serve the main HTML page"""
     return FileResponse("app/static/index.html")
+
+@app.get("/api/hardware/config")
+async def get_hardware_config():
+    """Get current hardware configuration"""
+    return hardware_manager.get_hardware_config()
+
 
 @app.get("/api/flow/current")
 async def get_current_flow():
@@ -316,11 +349,88 @@ async def broadcast_execution_state(executing: bool):
         active_connections.remove(conn)
 
 
+async def broadcast_hardware_config(hardware_config: Dict[str, Any]):
+    """Broadcast hardware configuration to all connected WebSocket clients"""
+    message = json.dumps({
+        "type": "hardware_config",
+        "config": hardware_config
+    })
+    
+    # Remove disconnected clients
+    disconnected = []
+    for connection in active_connections:
+        try:
+            await connection.send_text(message)
+        except:
+            disconnected.append(connection)
+    
+    for conn in disconnected:
+        active_connections.remove(conn)
+
+
+async def on_hardware_change(hardware_config: Dict[str, Any]):
+    """Callback when hardware configuration changes"""
+    logger.info(f"Hardware changed: {hardware_config}")
+    
+    # Broadcast to all clients
+    await broadcast_hardware_config(hardware_config)
+    
+    # Clean up nodes that are no longer available
+    await cleanup_unavailable_nodes(hardware_config)
+
+
+async def cleanup_unavailable_nodes(hardware_config: Dict[str, Any]):
+    """Remove nodes from the flow when hardware is disconnected"""
+    global current_flow
+    
+    available_motors = set(hardware_config.get("motors", []))
+    nodes_to_remove = []
+    
+    # Find nodes that reference disconnected hardware
+    for node in current_flow.get("nodes", []):
+        node_type = node.get("type", "")
+        if node_type.startswith("nxtMotor"):
+            port = node_type[-1]  # Extract A, B, or C
+            if port not in available_motors:
+                nodes_to_remove.append(node["id"])
+    
+    if nodes_to_remove:
+        logger.info(f"Removing nodes for disconnected hardware: {nodes_to_remove}")
+        
+        # Remove nodes
+        current_flow["nodes"] = [
+            node for node in current_flow["nodes"]
+            if node["id"] not in nodes_to_remove
+        ]
+        
+        # Remove edges connected to those nodes
+        current_flow["edges"] = [
+            edge for edge in current_flow["edges"]
+            if edge["source"] not in nodes_to_remove and edge["target"] not in nodes_to_remove
+        ]
+        
+        # Reload into executor
+        executor.load_flow(current_flow)
+        
+        # Broadcast updated flow to all clients
+        await broadcast_flow_update(current_flow)
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time state updates"""
     await websocket.accept()
     active_connections.append(websocket)
+    
+    # Send initial hardware configuration to new client
+    try:
+        hardware_config = hardware_manager.get_hardware_config()
+        await websocket.send_text(json.dumps({
+            "type": "hardware_config",
+            "config": hardware_config
+        }))
+    except Exception as e:
+        logger.error(f"Error sending initial hardware config: {e}")
     
     try:
         # Keep connection alive and listen for client messages
@@ -340,7 +450,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 
     except WebSocketDisconnect:
         active_connections.remove(websocket)
-        print("Client disconnected")
+        logger.info("Client disconnected")
 
 # Mount static files directory
 app.mount("/static", StaticFiles(directory="app/static"), name="static")

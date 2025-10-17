@@ -6,10 +6,13 @@ Runs node-based flows on the server side
 
 import asyncio
 import time
-from typing import Dict, List, Any, Optional, Set
+from typing import Dict, List, Any, Optional, Set, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from collections import defaultdict
 import logging
+
+if TYPE_CHECKING:
+    from hardware_manager import HardwareManager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -62,12 +65,13 @@ class FlowExecutor:
     Handles value propagation and execution order
     """
     
-    def __init__(self):
+    def __init__(self, hardware_manager: Optional['HardwareManager'] = None):
         self.nodes: Dict[str, Node] = {}
         self.edges: List[Dict[str, str]] = []
         self.execution_order: List[str] = []
         self.running = False
         self.state_callbacks = []  # Callbacks for state updates
+        self.hardware_manager = hardware_manager
         
     def load_flow(self, flow_data: Dict[str, Any]):
         """Load a flow from saved data"""
@@ -99,6 +103,12 @@ class FlowExecutor:
         node_type = node_data.get("type")
         node_id = node_data.get("id")
         data = node_data.get("data", {})
+        
+        # Handle NXT motor nodes specially
+        if node_type in ["nxtMotorA", "nxtMotorB", "nxtMotorC"]:
+            port = node_type[-1]  # Extract A, B, or C
+            data["port"] = port
+            return NXTMotorNode(node_id, node_type, data, self.hardware_manager)
         
         # Import node classes
         node_classes = {
@@ -701,4 +711,78 @@ class PControllerNode(Node):
             self.p_gain = float(value)
             if "pGain" not in self.connected_inputs:
                 self.inputs["pGain"] = self.p_gain
+
+
+class NXTMotorNode(Node):
+    """NXT Hardware Motor Node - controls actual NXT motors"""
+    
+    def __init__(self, node_id: str, node_type: str, data: Dict[str, Any], hardware_manager: Optional['HardwareManager'] = None):
+        super().__init__(node_id, node_type, data)
+        self.hardware_manager = hardware_manager
+        self.port = data.get("port", "A")  # Port A, B, or C
+        self.on_off = False
+        self.forward = True
+        self.speed = 50
+        self.last_command_time = 0
+        
+        # Initialize outputs with defaults
+        self.outputs = {
+            "onOff": self.on_off,
+            "forward": self.forward,
+            "speed": self.speed
+        }
+    
+    async def execute(self) -> Dict[str, Any]:
+        # Use connected inputs if available, otherwise use internal state
+        on_off = self.inputs.get("onOff", self.on_off)
+        forward = self.inputs.get("forward", self.forward)
+        speed = self.inputs.get("speed", self.speed)
+        
+        # Clamp speed
+        speed = max(0, min(100, speed))
+        
+        # Control actual NXT motor if hardware manager available
+        if self.hardware_manager:
+            motor = self.hardware_manager.get_motor(self.port)
+            if motor:
+                try:
+                    if on_off:
+                        # Convert 0-100 to motor power (-127 to 127)
+                        power = int(speed * 1.27)
+                        if not forward:
+                            power = -power
+                        motor.run(power)
+                        logger.debug(f"Motor {self.port}: power={power}")
+                    else:
+                        motor.brake()
+                        logger.debug(f"Motor {self.port}: brake")
+                except Exception as e:
+                    logger.error(f"Error controlling motor {self.port}: {e}")
+        
+        self.on_off = on_off
+        self.forward = forward
+        self.speed = speed
+        
+        return {
+            "onOff": on_off,
+            "forward": forward,
+            "speed": speed
+        }
+    
+    def set_user_input(self, control: str, value: Any):
+        if control == "onOff":
+            self.on_off = bool(value)
+            if "onOff" not in self.connected_inputs:
+                self.inputs["onOff"] = self.on_off
+            self.outputs["onOff"] = self.on_off
+        elif control == "forward":
+            self.forward = bool(value)
+            if "forward" not in self.connected_inputs:
+                self.inputs["forward"] = self.forward
+            self.outputs["forward"] = self.forward
+        elif control == "speed":
+            self.speed = int(value)
+            if "speed" not in self.connected_inputs:
+                self.inputs["speed"] = self.speed
+            self.outputs["speed"] = self.speed
 

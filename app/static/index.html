@@ -968,6 +968,168 @@
                 </div>
             );
         }
+        
+        // NXT Motor Node (Hardware) - Same as MotorNode but for actual hardware
+        function NXTMotorNode({ data, id }) {
+            // Get values from server state
+            const onOff = data.serverState?.outputs?.onOff ?? false;
+            const forward = data.serverState?.outputs?.forward ?? true;
+            const speed = data.serverState?.outputs?.speed ?? 50;
+            const port = data.port || 'A';
+
+            // Check if handles are connected from data
+            const isOnOffConnected = data.connectedInputs?.includes('in-on-off') || false;
+            const isForwardConnected = data.connectedInputs?.includes('in-forward') || false;
+            const isSpeedConnected = data.connectedInputs?.includes('in-speed') || false;
+
+            // User input handlers
+            const handleOnOffChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'onOff', e.target.checked);
+                }
+            };
+
+            const handleForwardChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'forward', e.target.checked);
+                }
+            };
+
+            const handleSpeedChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'speed', parseInt(e.target.value));
+                }
+            };
+
+            return (
+                <div style={{ border: '2px solid #00ff88' }}>
+                    {/* Input Handles */}
+                    <Handle 
+                        type="target" 
+                        position={Position.Left} 
+                        id="in-on-off" 
+                        style={{ top: '35px' }}
+                        data-type="boolean"
+                        data-label="On/Off"
+                    />
+                    <div className="port-value port-value-left" style={{ top: '35px' }}>
+                        {onOff ? 'ON' : 'OFF'}
+                    </div>
+                    <Handle 
+                        type="target" 
+                        position={Position.Left} 
+                        id="in-forward" 
+                        style={{ top: '65px' }}
+                        data-type="boolean"
+                        data-label="Direction"
+                    />
+                    <div className="port-value port-value-left" style={{ top: '65px' }}>
+                        {forward ? 'FWD' : 'REV'}
+                    </div>
+                    <Handle 
+                        type="target" 
+                        position={Position.Left} 
+                        id="in-speed" 
+                        style={{ top: '95px' }}
+                        data-type="number"
+                        data-label="Speed"
+                    />
+                    <div className="port-value port-value-left" style={{ top: '95px' }}>
+                        {speed}
+                    </div>
+
+                    <div className="node-header" style={{ background: '#00ff88', color: '#1a1a2e' }}>
+                        🔌 NXT Motor {port}
+                    </div>
+                    
+                    <div className="node-controls">
+                        <div className="control-group">
+                            <label className="control-label">
+                                <input 
+                                    type="checkbox" 
+                                    checked={onOff} 
+                                    onChange={handleOnOffChange}
+                                    disabled={isOnOffConnected}
+                                />
+                                {' '}On/Off
+                            </label>
+                        </div>
+
+                        <div className="control-group">
+                            <label className="control-label">
+                                <input 
+                                    type="checkbox" 
+                                    checked={forward} 
+                                    onChange={handleForwardChange}
+                                    disabled={isForwardConnected}
+                                />
+                                {' '}Forward
+                            </label>
+                        </div>
+
+                        <div className="control-group">
+                            <label className="control-label">Speed: {speed}</label>
+                            <input 
+                                type="range" 
+                                min="0" 
+                                max="100" 
+                                value={speed}
+                                onChange={handleSpeedChange}
+                                className="control-input"
+                                disabled={isSpeedConnected}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="node-ports">
+                        <div className="port-group">
+                            <div className="port-group-title">Status:</div>
+                            <div className="port-item">
+                                <span className={`status-indicator ${onOff ? 'status-on' : 'status-off'}`}></span>
+                                {onOff ? 'ON' : 'OFF'}
+                            </div>
+                            <div className="port-item">Speed: {speed}</div>
+                            <div className="port-item">{forward ? 'Forward' : 'Reverse'}</div>
+                        </div>
+                    </div>
+
+                    {/* Output Handles - mirrored */}
+                    <Handle 
+                        type="source" 
+                        position={Position.Right} 
+                        id="out-on-off" 
+                        style={{ top: '35px' }}
+                        data-type="boolean"
+                        data-label="On/Off"
+                    />
+                    <div className="port-value port-value-right" style={{ top: '35px' }}>
+                        {onOff ? 'ON' : 'OFF'}
+                    </div>
+                    <Handle 
+                        type="source" 
+                        position={Position.Right} 
+                        id="out-forward" 
+                        style={{ top: '65px' }}
+                        data-type="boolean"
+                        data-label="Direction"
+                    />
+                    <div className="port-value port-value-right" style={{ top: '65px' }}>
+                        {forward ? 'FWD' : 'REV'}
+                    </div>
+                    <Handle 
+                        type="source" 
+                        position={Position.Right} 
+                        id="out-speed" 
+                        style={{ top: '95px' }}
+                        data-type="number"
+                        data-label="Speed"
+                    />
+                    <div className="port-value port-value-right" style={{ top: '95px' }}>
+                        {speed}
+                    </div>
+                </div>
+            );
+        }
 
         // Dial/Slider Node (Server-side execution)
         function DialNode({ data, id }) {
@@ -2095,6 +2257,42 @@
                     'out-speed': 'number'
                 }
             },
+            nxtMotorA: {
+                inputs: {
+                    'in-on-off': 'boolean',
+                    'in-forward': 'boolean',
+                    'in-speed': 'number'
+                },
+                outputs: {
+                    'out-on-off': 'boolean',
+                    'out-forward': 'boolean',
+                    'out-speed': 'number'
+                }
+            },
+            nxtMotorB: {
+                inputs: {
+                    'in-on-off': 'boolean',
+                    'in-forward': 'boolean',
+                    'in-speed': 'number'
+                },
+                outputs: {
+                    'out-on-off': 'boolean',
+                    'out-forward': 'boolean',
+                    'out-speed': 'number'
+                }
+            },
+            nxtMotorC: {
+                inputs: {
+                    'in-on-off': 'boolean',
+                    'in-forward': 'boolean',
+                    'in-speed': 'number'
+                },
+                outputs: {
+                    'out-on-off': 'boolean',
+                    'out-forward': 'boolean',
+                    'out-speed': 'number'
+                }
+            },
             dialNode: {
                 outputs: {
                     'out-value': 'number'
@@ -2254,6 +2452,9 @@
 
         const nodeTypes = {
             motorNode: MotorNode,
+            nxtMotorA: NXTMotorNode,
+            nxtMotorB: NXTMotorNode,
+            nxtMotorC: NXTMotorNode,
             dialNode: DialNode,
             switchNode: SwitchNode,
             numberDisplayNode: NumberDisplayNode,
@@ -2290,6 +2491,7 @@
             const [availableFlows, setAvailableFlows] = useState([]);
             const [notifications, setNotifications] = useState([]);
             const [isExecuting, setIsExecuting] = useState(false);
+            const [hardwareConfig, setHardwareConfig] = useState({ isConnected: false, motors: [], sensors: [] });
             const nodeOutputsRef = useRef({});
             const edgesRef = useRef([]);
             const notificationIdRef = useRef(0);
@@ -2417,6 +2619,35 @@
                         // Execution state changed (start/stop from another client)
                         console.log('Received execution state update:', message.isExecuting);
                         setIsExecuting(message.isExecuting);
+                    } else if (message.type === 'hardware_config') {
+                        // Hardware configuration changed (motor connected/disconnected)
+                        console.log('Received hardware config update:', message.config);
+                        setHardwareConfig(message.config);
+                        
+                        // Clean up nodes that are no longer available
+                        const availableMotors = new Set(message.config.motors);
+                        setNodes(prevNodes => {
+                            const validNodes = prevNodes.filter(node => {
+                                if (node.type.startsWith('nxtMotor')) {
+                                    const port = node.type.slice(-1); // Extract A, B, or C
+                                    return availableMotors.has(port);
+                                }
+                                return true;
+                            });
+                            return validNodes;
+                        });
+                        
+                        // Clean up edges connected to removed nodes
+                        setEdges(prevEdges => {
+                            const validNodeIds = new Set();
+                            setNodes(currentNodes => {
+                                currentNodes.forEach(node => validNodeIds.add(node.id));
+                                return currentNodes;
+                            });
+                            return prevEdges.filter(edge => 
+                                validNodeIds.has(edge.source) && validNodeIds.has(edge.target)
+                            );
+                        });
                     }
                 };
                 
@@ -2756,12 +2987,19 @@
                         y: event.clientY,
                     });
 
+                    // Extract port for NXT motor nodes
+                    let port = null;
+                    if (type.startsWith('nxtMotor')) {
+                        port = type.slice(-1); // Extract A, B, or C
+                    }
+                    
                     const newNode = {
                         id: `${type}-${Date.now()}`,
                         type,
                         position,
                         data: { 
                             label: type === 'motorNode' ? 'Motor - Port A' : undefined,
+                            port: port,
                             sendUserInput: sendUserInput,
                             inputs: {},
                             connectedInputs: [],
@@ -3050,23 +3288,34 @@
                         <div className="sidebar">
                             <h2>Node Palette</h2>
                             
-                            <h3>Connected Devices</h3>
-                            <div className="node-palette">
-                                <div
-                                    className={`palette-node ${usedDevices.has('motor-port-a') ? 'disabled' : ''}`}
-                                    draggable={!usedDevices.has('motor-port-a')}
-                                    onDragStart={(e) => {
-                                        if (!usedDevices.has('motor-port-a')) {
-                                            onDragStart(e, 'motorNode', 'motor-port-a');
-                                        }
-                                    }}
-                                >
-                                    <div className="palette-node-title">⚙️ Motor - Port A</div>
-                                    <div className="palette-node-desc">
-                                        Control NXT motor with speed and direction
-                                    </div>
+                            <h3>NXT Hardware</h3>
+                            {hardwareConfig.isConnected ? (
+                                <div className="node-palette">
+                                    {hardwareConfig.motors.length > 0 ? (
+                                        hardwareConfig.motors.map(port => (
+                                            <div
+                                                key={`nxt-motor-${port}`}
+                                                className="palette-node"
+                                                draggable
+                                                onDragStart={(e) => onDragStart(e, `nxtMotor${port}`)}
+                                            >
+                                                <div className="palette-node-title">🔌 NXT Motor {port}</div>
+                                                <div className="palette-node-desc">
+                                                    Hardware motor on port {port}
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div style={{ padding: '10px', color: 'var(--text-secondary)', fontSize: '0.9em' }}>
+                                            No motors detected
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
+                            ) : (
+                                <div style={{ padding: '10px', color: 'var(--text-secondary)', fontSize: '0.9em' }}>
+                                    NXT not connected
+                                </div>
+                            )}
 
                             <h3>Virtual I/O</h3>
                             <div className="node-palette">
