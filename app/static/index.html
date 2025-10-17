@@ -969,13 +969,13 @@
             );
         }
         
-        // NXT Motor Node (Hardware) - Same as MotorNode but for actual hardware
+        // NXT Motor Node (Hardware) - Controls actual NXT motors
         function NXTMotorNode({ data, id }) {
             // Get values from server state
             const onOff = data.serverState?.outputs?.onOff ?? false;
             const forward = data.serverState?.outputs?.forward ?? true;
             const speed = data.serverState?.outputs?.speed ?? 50;
-            const port = data.port || 'A';
+            const motorPort = data.motorPort || 'A';
 
             // Check if handles are connected from data
             const isOnOffConnected = data.connectedInputs?.includes('in-on-off') || false;
@@ -983,6 +983,12 @@
             const isSpeedConnected = data.connectedInputs?.includes('in-speed') || false;
 
             // User input handlers
+            const handlePortChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'motorPort', e.target.value);
+                }
+            };
+
             const handleOnOffChange = (e) => {
                 if (data.sendUserInput) {
                     data.sendUserInput(id, 'onOff', e.target.checked);
@@ -1039,10 +1045,23 @@
                     </div>
 
                     <div className="node-header" style={{ background: '#00ff88', color: '#1a1a2e' }}>
-                        🔌 NXT Motor {port}
+                        🔌 NXT Motor {motorPort}
                     </div>
                     
                     <div className="node-controls">
+                        <div className="control-group">
+                            <label className="control-label">Port</label>
+                            <select 
+                                value={motorPort}
+                                onChange={handlePortChange}
+                                className="control-input"
+                            >
+                                <option value="A">A</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                            </select>
+                        </div>
+                        
                         <div className="control-group">
                             <label className="control-label">
                                 <input 
@@ -1126,6 +1145,256 @@
                     />
                     <div className="port-value port-value-right" style={{ top: '95px' }}>
                         {speed}
+                    </div>
+                </div>
+            );
+        }
+        
+        // NXT Touch Sensor Node
+        function NXTTouchSensorNode({ data, id }) {
+            const pressed = data.serverState?.outputs?.pressed ?? false;
+            const sensorPort = data.sensorPort || '1';
+            
+            const handlePortChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'sensorPort', e.target.value);
+                }
+            };
+            
+            return (
+                <div style={{ border: '2px solid #00ff88' }}>
+                    <div className="node-header" style={{ background: '#00ff88', color: '#1a1a2e' }}>
+                        👆 Touch Sensor
+                    </div>
+                    
+                    <div className="node-controls">
+                        <div className="control-group">
+                            <label className="control-label">Port</label>
+                            <select 
+                                value={sensorPort}
+                                onChange={handlePortChange}
+                                className="control-input"
+                            >
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                            </select>
+                        </div>
+                        <div className="control-group">
+                            <div style={{ 
+                                padding: '10px',
+                                background: pressed ? '#00ff88' : '#ff4444',
+                                borderRadius: '4px',
+                                textAlign: 'center',
+                                color: '#1a1a2e',
+                                fontWeight: 'bold'
+                            }}>
+                                {pressed ? 'PRESSED' : 'RELEASED'}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <Handle 
+                        type="source" 
+                        position={Position.Right} 
+                        id="out-pressed" 
+                        style={{ top: '50%' }}
+                        data-type="boolean"
+                        data-label="Pressed"
+                    />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {pressed ? 'TRUE' : 'FALSE'}
+                    </div>
+                </div>
+            );
+        }
+        
+        // NXT Sound Sensor Node
+        function NXTSoundSensorNode({ data, id }) {
+            const intensity = data.serverState?.outputs?.intensity ?? 0;
+            const sensorPort = data.sensorPort || '1';
+            
+            const handlePortChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'sensorPort', e.target.value);
+                }
+            };
+            
+            return (
+                <div style={{ border: '2px solid #00ff88' }}>
+                    <div className="node-header" style={{ background: '#00ff88', color: '#1a1a2e' }}>
+                        🔊 Sound Sensor
+                    </div>
+                    
+                    <div className="node-controls">
+                        <div className="control-group">
+                            <label className="control-label">Port</label>
+                            <select 
+                                value={sensorPort}
+                                onChange={handlePortChange}
+                                className="control-input"
+                            >
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                            </select>
+                        </div>
+                        <div className="control-group">
+                            <div style={{ textAlign: 'center', fontSize: '2em', color: '#00ff88' }}>
+                                {intensity}%
+                            </div>
+                            <div style={{ 
+                                width: '100%', 
+                                height: '10px', 
+                                background: 'var(--bg-secondary)',
+                                borderRadius: '5px',
+                                overflow: 'hidden'
+                            }}>
+                                <div style={{
+                                    width: `${intensity}%`,
+                                    height: '100%',
+                                    background: '#00ff88',
+                                    transition: 'width 0.1s'
+                                }} />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <Handle 
+                        type="source" 
+                        position={Position.Right} 
+                        id="out-intensity" 
+                        style={{ top: '50%' }}
+                        data-type="number"
+                        data-label="Intensity"
+                    />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {intensity}
+                    </div>
+                </div>
+            );
+        }
+        
+        // NXT Light Sensor Node
+        function NXTLightSensorNode({ data, id }) {
+            const intensity = data.serverState?.outputs?.intensity ?? 0;
+            const sensorPort = data.sensorPort || '1';
+            
+            const handlePortChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'sensorPort', e.target.value);
+                }
+            };
+            
+            return (
+                <div style={{ border: '2px solid #00ff88' }}>
+                    <div className="node-header" style={{ background: '#00ff88', color: '#1a1a2e' }}>
+                        💡 Light Sensor
+                    </div>
+                    
+                    <div className="node-controls">
+                        <div className="control-group">
+                            <label className="control-label">Port</label>
+                            <select 
+                                value={sensorPort}
+                                onChange={handlePortChange}
+                                className="control-input"
+                            >
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                            </select>
+                        </div>
+                        <div className="control-group">
+                            <div style={{ textAlign: 'center', fontSize: '2em', color: '#FFD700' }}>
+                                {intensity}%
+                            </div>
+                            <div style={{ 
+                                width: '100%', 
+                                height: '10px', 
+                                background: 'var(--bg-secondary)',
+                                borderRadius: '5px',
+                                overflow: 'hidden'
+                            }}>
+                                <div style={{
+                                    width: `${intensity}%`,
+                                    height: '100%',
+                                    background: '#FFD700',
+                                    transition: 'width 0.1s'
+                                }} />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <Handle 
+                        type="source" 
+                        position={Position.Right} 
+                        id="out-intensity" 
+                        style={{ top: '50%' }}
+                        data-type="number"
+                        data-label="Intensity"
+                    />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {intensity}
+                    </div>
+                </div>
+            );
+        }
+        
+        // NXT Ultrasonic Sensor Node
+        function NXTUltrasonicSensorNode({ data, id }) {
+            const distance = data.serverState?.outputs?.distance ?? 0;
+            const sensorPort = data.sensorPort || '1';
+            
+            const handlePortChange = (e) => {
+                if (data.sendUserInput) {
+                    data.sendUserInput(id, 'sensorPort', e.target.value);
+                }
+            };
+            
+            return (
+                <div style={{ border: '2px solid #00ff88' }}>
+                    <div className="node-header" style={{ background: '#00ff88', color: '#1a1a2e' }}>
+                        📡 Ultrasonic
+                    </div>
+                    
+                    <div className="node-controls">
+                        <div className="control-group">
+                            <label className="control-label">Port</label>
+                            <select 
+                                value={sensorPort}
+                                onChange={handlePortChange}
+                                className="control-input"
+                            >
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                            </select>
+                        </div>
+                        <div className="control-group">
+                            <div style={{ textAlign: 'center', fontSize: '2.5em', color: '#00d4ff' }}>
+                                {distance}
+                            </div>
+                            <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                centimeters
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <Handle 
+                        type="source" 
+                        position={Position.Right} 
+                        id="out-distance" 
+                        style={{ top: '50%' }}
+                        data-type="number"
+                        data-label="Distance"
+                    />
+                    <div className="port-value port-value-right" style={{ top: '50%' }}>
+                        {distance}
                     </div>
                 </div>
             );
@@ -2257,7 +2526,7 @@
                     'out-speed': 'number'
                 }
             },
-            nxtMotorA: {
+            nxtMotor: {
                 inputs: {
                     'in-on-off': 'boolean',
                     'in-forward': 'boolean',
@@ -2269,28 +2538,24 @@
                     'out-speed': 'number'
                 }
             },
-            nxtMotorB: {
-                inputs: {
-                    'in-on-off': 'boolean',
-                    'in-forward': 'boolean',
-                    'in-speed': 'number'
-                },
+            nxtTouchSensor: {
                 outputs: {
-                    'out-on-off': 'boolean',
-                    'out-forward': 'boolean',
-                    'out-speed': 'number'
+                    'out-pressed': 'boolean'
                 }
             },
-            nxtMotorC: {
-                inputs: {
-                    'in-on-off': 'boolean',
-                    'in-forward': 'boolean',
-                    'in-speed': 'number'
-                },
+            nxtSoundSensor: {
                 outputs: {
-                    'out-on-off': 'boolean',
-                    'out-forward': 'boolean',
-                    'out-speed': 'number'
+                    'out-intensity': 'number'
+                }
+            },
+            nxtLightSensor: {
+                outputs: {
+                    'out-intensity': 'number'
+                }
+            },
+            nxtUltrasonicSensor: {
+                outputs: {
+                    'out-distance': 'number'
                 }
             },
             dialNode: {
@@ -2452,9 +2717,11 @@
 
         const nodeTypes = {
             motorNode: MotorNode,
-            nxtMotorA: NXTMotorNode,
-            nxtMotorB: NXTMotorNode,
-            nxtMotorC: NXTMotorNode,
+            nxtMotor: NXTMotorNode,
+            nxtTouchSensor: NXTTouchSensorNode,
+            nxtSoundSensor: NXTSoundSensorNode,
+            nxtLightSensor: NXTLightSensorNode,
+            nxtUltrasonicSensor: NXTUltrasonicSensorNode,
             dialNode: DialNode,
             switchNode: SwitchNode,
             numberDisplayNode: NumberDisplayNode,
@@ -2626,34 +2893,12 @@
                         console.log('Received execution state update:', message.isExecuting);
                         setIsExecuting(message.isExecuting);
                     } else if (message.type === 'hardware_config') {
-                        // Hardware configuration changed (motor connected/disconnected)
+                        // Hardware configuration changed
                         console.log('Received hardware config update:', message.config);
                         setHardwareConfig(message.config);
                         
-                        // Clean up nodes that are no longer available
-                        const availableMotors = new Set(message.config.motors);
-                        setNodes(prevNodes => {
-                            const validNodes = prevNodes.filter(node => {
-                                if (node.type.startsWith('nxtMotor')) {
-                                    const port = node.type.slice(-1); // Extract A, B, or C
-                                    return availableMotors.has(port);
-                                }
-                                return true;
-                            });
-                            return validNodes;
-                        });
-                        
-                        // Clean up edges connected to removed nodes
-                        setEdges(prevEdges => {
-                            const validNodeIds = new Set();
-                            setNodes(currentNodes => {
-                                currentNodes.forEach(node => validNodeIds.add(node.id));
-                                return currentNodes;
-                            });
-                            return prevEdges.filter(edge => 
-                                validNodeIds.has(edge.source) && validNodeIds.has(edge.target)
-                            );
-                        });
+                        // Note: Motor nodes are manual and not auto-cleaned
+                        // Users must manually configure which port each motor uses
                     }
                 };
                 
@@ -2680,6 +2925,23 @@
 
             // Send user input to server
             const sendUserInput = useCallback((nodeId, control, value) => {
+                // Update local node data for configuration properties
+                if (control === 'motorPort' || control === 'sensorPort') {
+                    setNodes(nds => nds.map(node => {
+                        if (node.id === nodeId) {
+                            return {
+                                ...node,
+                                data: {
+                                    ...node.data,
+                                    [control]: value
+                                }
+                            };
+                        }
+                        return node;
+                    }));
+                }
+                
+                // Send to backend
                 if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
                     wsRef.current.send(JSON.stringify({
                         type: 'user_input',
@@ -2688,7 +2950,7 @@
                         value: value
                     }));
                 }
-            }, []);
+            }, [setNodes]);
 
             // Handle state updates from server
             const handleServerStateUpdate = useCallback((nodeId, state) => {
@@ -2993,10 +3255,14 @@
                         y: event.clientY,
                     });
 
-                    // Extract port for NXT motor nodes
-                    let port = null;
-                    if (type.startsWith('nxtMotor')) {
-                        port = type.slice(-1); // Extract A, B, or C
+                    // Extract port for NXT nodes
+                    let motorPort = null;
+                    let sensorPort = null;
+                    
+                    if (type === 'nxtMotor') {
+                        motorPort = 'A'; // Default motor port
+                    } else if (type.startsWith('nxt') && type.includes('Sensor')) {
+                        sensorPort = '1'; // Default sensor port
                     }
                     
                     const newNode = {
@@ -3005,7 +3271,8 @@
                         position,
                         data: { 
                             label: type === 'motorNode' ? 'Motor - Port A' : undefined,
-                            port: port,
+                            motorPort: motorPort,
+                            sensorPort: sensorPort,
                             sendUserInput: sendUserInput,
                             inputs: {},
                             connectedInputs: [],
@@ -3310,32 +3577,65 @@
                                                 🔋 {hardwareConfig.batteryVoltage}V
                                             </span>
                                         </div>
-                                        {Object.keys(hardwareConfig.sensors || {}).length > 0 && (
-                                            <div style={{ marginTop: '5px', color: 'var(--text-secondary)', fontSize: '0.9em' }}>
-                                                Sensors: {Object.keys(hardwareConfig.sensors).join(', ')}
-                                            </div>
-                                        )}
                                     </div>
                                     <div className="node-palette">
-                                    {hardwareConfig.motors.length > 0 ? (
-                                        hardwareConfig.motors.map(port => (
-                                            <div
-                                                key={`nxt-motor-${port}`}
-                                                className="palette-node"
-                                                draggable
-                                                onDragStart={(e) => onDragStart(e, `nxtMotor${port}`)}
-                                            >
-                                                <div className="palette-node-title">🔌 NXT Motor {port}</div>
-                                                <div className="palette-node-desc">
-                                                    Hardware motor on port {port}
-                                                </div>
+                                        <div
+                                            className="palette-node"
+                                            draggable
+                                            onDragStart={(e) => onDragStart(e, 'nxtMotor')}
+                                        >
+                                            <div className="palette-node-title">🔌 NXT Motor</div>
+                                            <div className="palette-node-desc">
+                                                Control hardware motor
                                             </div>
-                                        ))
-                                    ) : (
-                                        <div style={{ padding: '10px', color: 'var(--text-secondary)', fontSize: '0.9em' }}>
-                                            No motors detected
                                         </div>
-                                    )}
+                                    </div>
+                                    
+                                    <h3 style={{ marginTop: '20px' }}>NXT Sensors</h3>
+                                    <div className="node-palette">
+                                        <div
+                                            className="palette-node"
+                                            draggable
+                                            onDragStart={(e) => onDragStart(e, 'nxtTouchSensor')}
+                                        >
+                                            <div className="palette-node-title">👆 Touch Sensor</div>
+                                            <div className="palette-node-desc">
+                                                Detects if button is pressed
+                                            </div>
+                                        </div>
+                                        
+                                        <div
+                                            className="palette-node"
+                                            draggable
+                                            onDragStart={(e) => onDragStart(e, 'nxtSoundSensor')}
+                                        >
+                                            <div className="palette-node-title">🔊 Sound Sensor</div>
+                                            <div className="palette-node-desc">
+                                                Measures sound intensity
+                                            </div>
+                                        </div>
+                                        
+                                        <div
+                                            className="palette-node"
+                                            draggable
+                                            onDragStart={(e) => onDragStart(e, 'nxtLightSensor')}
+                                        >
+                                            <div className="palette-node-title">💡 Light Sensor</div>
+                                            <div className="palette-node-desc">
+                                                Measures light intensity
+                                            </div>
+                                        </div>
+                                        
+                                        <div
+                                            className="palette-node"
+                                            draggable
+                                            onDragStart={(e) => onDragStart(e, 'nxtUltrasonicSensor')}
+                                        >
+                                            <div className="palette-node-title">📡 Ultrasonic</div>
+                                            <div className="palette-node-desc">
+                                                Measures distance in cm
+                                            </div>
+                                        </div>
                                     </div>
                                 </>
                             ) : (

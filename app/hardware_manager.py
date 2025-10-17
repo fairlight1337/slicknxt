@@ -95,8 +95,12 @@ class HardwareManager:
     
     def detect_sensors(self) -> Dict[str, Any]:
         """
-        Auto-detect sensors on all ports using NXT autodetection
+        Auto-detect sensors on all ports (digital sensors only)
         Returns: Dict of port -> sensor info
+        
+        Note: Only digital sensors with ID chips can be auto-detected.
+        Analog sensors (touch, sound, light) cannot be detected and should be
+        configured manually on each sensor block instance.
         """
         if not self.brick or not self.is_connected:
             return {}
@@ -104,6 +108,8 @@ class HardwareManager:
         detected_sensors = {}
         
         for port_num in [1, 2, 3, 4]:
+            port_str = str(port_num)
+            
             try:
                 port = getattr(nxt.sensor.Port, f'S{port_num}')
                 
@@ -116,24 +122,11 @@ class HardwareManager:
                         'port': port_num,
                         'class': sensor_type
                     }
-                    detected_sensors[str(port_num)] = sensor_info
-                    logger.info(f"✓ Sensor detected on port {port_num}: {sensor_type}")
+                    detected_sensors[port_str] = sensor_info
+                    logger.info(f"✓ Auto-detected sensor on port {port_num}: {sensor_type}")
                 except nxt.sensor.digital.SearchError:
-                    # No digital sensor with ID, try generic analog detection
-                    try:
-                        # Try to read as a generic analog sensor
-                        sensor = nxt.sensor.generic.TouchSensor(self.brick, port)
-                        # If we can read a value, something is connected
-                        value = sensor.get_sample()
-                        sensor_info = {
-                            'type': 'Analog',
-                            'port': port_num,
-                            'class': 'Generic'
-                        }
-                        detected_sensors[str(port_num)] = sensor_info
-                        logger.info(f"✓ Analog sensor detected on port {port_num}")
-                    except:
-                        logger.debug(f"✗ No sensor on port {port_num}")
+                    # No digital sensor with ID found
+                    logger.debug(f"✗ No auto-detectable sensor on port {port_num}")
                 except Exception as e:
                     logger.debug(f"✗ No sensor on port {port_num}: {e}")
             except Exception as e:
@@ -142,7 +135,7 @@ class HardwareManager:
         if detected_sensors:
             logger.info(f"Sensor detection complete: {list(detected_sensors.keys())}")
         else:
-            logger.info("Sensor detection complete: No sensors found")
+            logger.info("Sensor detection complete: No auto-detectable sensors found")
         
         return detected_sensors
     

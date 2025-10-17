@@ -10,6 +10,8 @@ from typing import Dict, List, Any, Optional, Set, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from collections import defaultdict
 import logging
+import nxt.sensor
+import nxt.sensor.generic
 
 if TYPE_CHECKING:
     from hardware_manager import HardwareManager
@@ -104,11 +106,19 @@ class FlowExecutor:
         node_id = node_data.get("id")
         data = node_data.get("data", {})
         
-        # Handle NXT motor nodes specially
-        if node_type in ["nxtMotorA", "nxtMotorB", "nxtMotorC"]:
-            port = node_type[-1]  # Extract A, B, or C
-            data["port"] = port
+        # Handle NXT hardware nodes specially
+        if node_type == "nxtMotor":
             return NXTMotorNode(node_id, node_type, data, self.hardware_manager)
+        
+        # Handle NXT sensor nodes
+        if node_type == "nxtTouchSensor":
+            return NXTTouchSensorNode(node_id, node_type, data, self.hardware_manager)
+        elif node_type == "nxtSoundSensor":
+            return NXTSoundSensorNode(node_id, node_type, data, self.hardware_manager)
+        elif node_type == "nxtLightSensor":
+            return NXTLightSensorNode(node_id, node_type, data, self.hardware_manager)
+        elif node_type == "nxtUltrasonicSensor":
+            return NXTUltrasonicSensorNode(node_id, node_type, data, self.hardware_manager)
         
         # Import node classes
         node_classes = {
@@ -719,7 +729,7 @@ class NXTMotorNode(Node):
     def __init__(self, node_id: str, node_type: str, data: Dict[str, Any], hardware_manager: Optional['HardwareManager'] = None):
         super().__init__(node_id, node_type, data)
         self.hardware_manager = hardware_manager
-        self.port = data.get("port", "A")  # Port A, B, or C
+        self.port = data.get("motorPort", "A")  # Port A, B, or C
         self.on_off = False
         self.forward = True
         self.speed = 50
@@ -770,7 +780,9 @@ class NXTMotorNode(Node):
         }
     
     def set_user_input(self, control: str, value: Any):
-        if control == "onOff":
+        if control == "motorPort":
+            self.port = str(value)
+        elif control == "onOff":
             self.on_off = bool(value)
             if "onOff" not in self.connected_inputs:
                 self.inputs["onOff"] = self.on_off
@@ -785,4 +797,192 @@ class NXTMotorNode(Node):
             if "speed" not in self.connected_inputs:
                 self.inputs["speed"] = self.speed
             self.outputs["speed"] = self.speed
+
+
+class NXTTouchSensorNode(Node):
+    """NXT Touch Sensor Node - reads touch sensor state"""
+    
+    def __init__(self, node_id: str, node_type: str, data: Dict[str, Any], hardware_manager: Optional['HardwareManager'] = None):
+        super().__init__(node_id, node_type, data)
+        self.hardware_manager = hardware_manager
+        self.port = data.get("sensorPort", "1")  # Default to port 1
+        self.sensor = None
+        self.last_value = False
+        
+        # Initialize outputs
+        self.outputs = {"pressed": False}
+    
+    def _get_sensor(self):
+        """Get or create sensor instance"""
+        if not self.hardware_manager or not self.hardware_manager.brick:
+            return None
+        
+        try:
+            port = getattr(nxt.sensor.Port, f'S{self.port}')
+            self.sensor = nxt.sensor.generic.Touch(self.hardware_manager.brick, port)
+            return self.sensor
+        except Exception as e:
+            logger.error(f"Error initializing touch sensor on port {self.port}: {e}")
+            return None
+    
+    async def execute(self) -> Dict[str, Any]:
+        sensor = self._get_sensor()
+        pressed = False
+        
+        if sensor:
+            try:
+                pressed = bool(sensor.get_sample())
+                self.last_value = pressed
+            except Exception as e:
+                logger.debug(f"Error reading touch sensor on port {self.port}: {e}")
+                pressed = self.last_value
+        
+        return {"pressed": pressed}
+    
+    def set_user_input(self, control: str, value: Any):
+        if control == "sensorPort":
+            self.port = str(value)
+            self.sensor = None  # Reset sensor to reinitialize
+
+
+class NXTSoundSensorNode(Node):
+    """NXT Sound Sensor Node - reads sound intensity"""
+    
+    def __init__(self, node_id: str, node_type: str, data: Dict[str, Any], hardware_manager: Optional['HardwareManager'] = None):
+        super().__init__(node_id, node_type, data)
+        self.hardware_manager = hardware_manager
+        self.port = data.get("sensorPort", "1")
+        self.sensor = None
+        self.last_value = 0
+        
+        # Initialize outputs
+        self.outputs = {"intensity": 0}
+    
+    def _get_sensor(self):
+        """Get or create sensor instance"""
+        if not self.hardware_manager or not self.hardware_manager.brick:
+            return None
+        
+        try:
+            port = getattr(nxt.sensor.Port, f'S{self.port}')
+            self.sensor = nxt.sensor.generic.Sound(self.hardware_manager.brick, port)
+            return self.sensor
+        except Exception as e:
+            logger.error(f"Error initializing sound sensor on port {self.port}: {e}")
+            return None
+    
+    async def execute(self) -> Dict[str, Any]:
+        sensor = self._get_sensor()
+        intensity = 0
+        
+        if sensor:
+            try:
+                # get_sample() returns 0-1023, convert to 0-100
+                raw_value = int(sensor.get_sample())
+                intensity = int((raw_value / 1023.0) * 100)
+                self.last_value = intensity
+            except Exception as e:
+                logger.debug(f"Error reading sound sensor on port {self.port}: {e}")
+                intensity = self.last_value
+        
+        return {"intensity": intensity}
+    
+    def set_user_input(self, control: str, value: Any):
+        if control == "sensorPort":
+            self.port = str(value)
+            self.sensor = None
+
+
+class NXTLightSensorNode(Node):
+    """NXT Light/Color Sensor Node - reads light intensity"""
+    
+    def __init__(self, node_id: str, node_type: str, data: Dict[str, Any], hardware_manager: Optional['HardwareManager'] = None):
+        super().__init__(node_id, node_type, data)
+        self.hardware_manager = hardware_manager
+        self.port = data.get("sensorPort", "1")
+        self.sensor = None
+        self.last_value = 0
+        
+        # Initialize outputs
+        self.outputs = {"intensity": 0}
+    
+    def _get_sensor(self):
+        """Get or create sensor instance"""
+        if not self.hardware_manager or not self.hardware_manager.brick:
+            return None
+        
+        try:
+            port = getattr(nxt.sensor.Port, f'S{self.port}')
+            self.sensor = nxt.sensor.generic.Light(self.hardware_manager.brick, port)
+            return self.sensor
+        except Exception as e:
+            logger.error(f"Error initializing light sensor on port {self.port}: {e}")
+            return None
+    
+    async def execute(self) -> Dict[str, Any]:
+        sensor = self._get_sensor()
+        intensity = 0
+        
+        if sensor:
+            try:
+                # get_sample() returns 0-1023, convert to 0-100
+                raw_value = int(sensor.get_sample())
+                intensity = int((raw_value / 1023.0) * 100)
+                self.last_value = intensity
+            except Exception as e:
+                logger.debug(f"Error reading light sensor on port {self.port}: {e}")
+                intensity = self.last_value
+        
+        return {"intensity": intensity}
+    
+    def set_user_input(self, control: str, value: Any):
+        if control == "sensorPort":
+            self.port = str(value)
+            self.sensor = None
+
+
+class NXTUltrasonicSensorNode(Node):
+    """NXT Ultrasonic Sensor Node - reads distance"""
+    
+    def __init__(self, node_id: str, node_type: str, data: Dict[str, Any], hardware_manager: Optional['HardwareManager'] = None):
+        super().__init__(node_id, node_type, data)
+        self.hardware_manager = hardware_manager
+        self.port = data.get("sensorPort", "1")
+        self.sensor = None
+        self.last_value = 0
+        
+        # Initialize outputs
+        self.outputs = {"distance": 0}
+    
+    def _get_sensor(self):
+        """Get or create sensor instance"""
+        if not self.hardware_manager or not self.hardware_manager.brick:
+            return None
+        
+        try:
+            port = getattr(nxt.sensor.Port, f'S{self.port}')
+            self.sensor = nxt.sensor.generic.Ultrasonic(self.hardware_manager.brick, port)
+            return self.sensor
+        except Exception as e:
+            logger.error(f"Error initializing ultrasonic sensor on port {self.port}: {e}")
+            return None
+    
+    async def execute(self) -> Dict[str, Any]:
+        sensor = self._get_sensor()
+        distance = 0
+        
+        if sensor:
+            try:
+                distance = int(sensor.get_sample())
+                self.last_value = distance
+            except Exception as e:
+                logger.debug(f"Error reading ultrasonic sensor on port {self.port}: {e}")
+                distance = self.last_value
+        
+        return {"distance": distance}
+    
+    def set_user_input(self, control: str, value: Any):
+        if control == "sensorPort":
+            self.port = str(value)
+            self.sensor = None
 

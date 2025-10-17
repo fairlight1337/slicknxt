@@ -119,6 +119,24 @@ async def rescan_hardware():
     return {"status": "scanned", "config": config}
 
 
+@app.post("/api/hardware/sensors/config")
+async def set_sensor_config(config: Dict[str, str]):
+    """Set manual sensor configuration"""
+    logger.info(f"Received sensor configuration: {config}")
+    
+    # Update hardware manager
+    hardware_manager.set_manual_sensor_config(config)
+    
+    # Re-detect sensors with new config
+    hardware_manager.connected_sensors = hardware_manager.detect_sensors()
+    
+    # Get updated config and broadcast
+    hw_config = hardware_manager.get_hardware_config()
+    await broadcast_hardware_config(hw_config)
+    
+    return {"status": "configured", "sensors": hardware_manager.connected_sensors}
+
+
 @app.get("/api/flow/current")
 async def get_current_flow():
     """Get the current flow state"""
@@ -413,37 +431,10 @@ async def cleanup_unavailable_nodes(hardware_config: Dict[str, Any]):
     """Remove nodes from the flow when hardware is disconnected"""
     global current_flow
     
-    available_motors = set(hardware_config.get("motors", []))
-    nodes_to_remove = []
-    
-    # Find nodes that reference disconnected hardware
-    for node in current_flow.get("nodes", []):
-        node_type = node.get("type", "")
-        if node_type.startswith("nxtMotor"):
-            port = node_type[-1]  # Extract A, B, or C
-            if port not in available_motors:
-                nodes_to_remove.append(node["id"])
-    
-    if nodes_to_remove:
-        logger.info(f"Removing nodes for disconnected hardware: {nodes_to_remove}")
-        
-        # Remove nodes
-        current_flow["nodes"] = [
-            node for node in current_flow["nodes"]
-            if node["id"] not in nodes_to_remove
-        ]
-        
-        # Remove edges connected to those nodes
-        current_flow["edges"] = [
-            edge for edge in current_flow["edges"]
-            if edge["source"] not in nodes_to_remove and edge["target"] not in nodes_to_remove
-        ]
-        
-        # Reload into executor
-        executor.load_flow(current_flow)
-        
-        # Broadcast updated flow to all clients
-        await broadcast_flow_update(current_flow)
+    # Note: Motor nodes are manual and not auto-removed
+    # Users must manually configure which port each motor uses
+    # This function is kept for potential future sensor cleanup logic
+    pass
 
 
 @app.websocket("/ws")
